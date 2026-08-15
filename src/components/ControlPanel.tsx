@@ -20,13 +20,20 @@ import {
   X,
   Sparkles,
   Tag,
-  Palette
+  Palette,
+  Megaphone,
+  PlusCircle,
+  Image as ImageIcon,
+  Calendar,
+  Layers
 } from 'lucide-react';
-import { Database, Category } from '../types';
+import { Database, Category, NoticeItem, GalleryItem } from '../types';
 
 interface ControlPanelProps {
   db: Database;
   categories: Category[];
+  notices: NoticeItem[];
+  gallery: GalleryItem[];
   gasUrl: string;
   onSaveGasUrl: (url: string) => void;
   onAddStudent: (data: { name: string; pw: string; grade: string; class: string; bio?: string }) => void;
@@ -34,6 +41,12 @@ interface ControlPanelProps {
   onAddCategory: (data: { name: string; emoji?: string; color?: string; description?: string }) => void;
   onUpdateCategory: (id: number | string, data: { name: string; emoji?: string; color?: string; description?: string }) => void;
   onDeleteCategory: (id: number | string) => void;
+  onAddNotice: (data: { tag: string; title: string; date?: string }) => void;
+  onUpdateNotice: (id: number | string, data: { tag: string; title: string; date?: string }) => void;
+  onDeleteNotice: (id: number | string) => void;
+  onAddGalleryItem: (data: { title: string; emoji?: string; color?: string; imageUrl?: string; description?: string; date?: string }) => void;
+  onUpdateGalleryItem: (id: number | string, data: { title: string; emoji?: string; color?: string; imageUrl?: string; description?: string; date?: string }) => void;
+  onDeleteGalleryItem: (id: number | string) => void;
   onResetData: () => void;
 }
 
@@ -46,7 +59,7 @@ const PRESET_COLORS = [
   { label: '스카이블루', value: '#BAE6FD', bgClass: 'bg-[#BAE6FD]' }
 ];
 
-const PRESET_EMOJIS = ['🌱', '📝', '📚', '💡', '💖', '🎨', '⚽', '🪐', '🎮', '🌿', '🔬', '🎵', '🏆', '📸'];
+const PRESET_EMOJIS = ['🌱', '📝', '📚', '💡', '💖', '🎨', '⚽', '🪐', '🎮', '🌿', '🔬', '🎵', '🏆', '📸', '✨', '🍕'];
 
 const SAMPLE_GAS_CODE = `function doGet(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -68,6 +81,8 @@ const SAMPLE_GAS_CODE = `function doGet(e) {
     Posts: getSheetData('Posts'),
     Comments: getSheetData('Comments'),
     Categories: getSheetData('Categories'),
+    Notices: getSheetData('Notices'),
+    Gallery: getSheetData('Gallery'),
     Settings: getSheetData('Settings')
   };
   
@@ -101,11 +116,13 @@ function doPost(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }`;
 
-type AdminTab = 'categories' | 'students' | 'gas' | 'stats';
+type AdminTab = 'categories' | 'notices' | 'gallery' | 'students' | 'gas' | 'stats';
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({
   db,
   categories,
+  notices,
+  gallery,
   gasUrl,
   onSaveGasUrl,
   onAddStudent,
@@ -113,6 +130,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onAddCategory,
   onUpdateCategory,
   onDeleteCategory,
+  onAddNotice,
+  onUpdateNotice,
+  onDeleteNotice,
+  onAddGalleryItem,
+  onUpdateGalleryItem,
+  onDeleteGalleryItem,
   onResetData
 }) => {
   const [adminPw, setAdminPw] = useState('');
@@ -142,6 +165,34 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const [editColor, setEditColor] = useState('#F7CAC9');
   const [editDesc, setEditDesc] = useState('');
 
+  // Notice Form State
+  const [newNoticeTag, setNewNoticeTag] = useState('알림');
+  const [newNoticeTitle, setNewNoticeTitle] = useState('');
+  const [newNoticeDate, setNewNoticeDate] = useState('');
+
+  // Notice Edit State
+  const [editingNoticeId, setEditingNoticeId] = useState<number | string | null>(null);
+  const [editNoticeTag, setEditNoticeTag] = useState('');
+  const [editNoticeTitle, setEditNoticeTitle] = useState('');
+  const [editNoticeDate, setEditNoticeDate] = useState('');
+
+  // Gallery Form State
+  const [newGalleryTitle, setNewGalleryTitle] = useState('');
+  const [newGalleryEmoji, setNewGalleryEmoji] = useState('🎨');
+  const [newGalleryColor, setNewGalleryColor] = useState('#F7CAC9');
+  const [newGalleryDesc, setNewGalleryDesc] = useState('');
+  const [newGalleryImg, setNewGalleryImg] = useState('');
+  const [newGalleryDate, setNewGalleryDate] = useState('');
+
+  // Gallery Edit State
+  const [editingGalleryId, setEditingGalleryId] = useState<number | string | null>(null);
+  const [editGalleryTitle, setEditGalleryTitle] = useState('');
+  const [editGalleryEmoji, setEditGalleryEmoji] = useState('🎨');
+  const [editGalleryColor, setEditGalleryColor] = useState('#F7CAC9');
+  const [editGalleryDesc, setEditGalleryDesc] = useState('');
+  const [editGalleryImg, setEditGalleryImg] = useState('');
+  const [editGalleryDate, setEditGalleryDate] = useState('');
+
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (adminPw === '0526') {
@@ -151,6 +202,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     }
   };
 
+  // Student Handler
   const handleStudentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStudentName.trim() || !newStudentPw.trim()) return;
@@ -171,13 +223,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     alert(`${newStudentName} 학생이 성공적으로 등록되었습니다!`);
   };
 
+  // Category Handlers
   const handleCategorySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCatName.trim()) {
       alert('카테고리 이름을 입력해주세요.');
       return;
     }
-    // Check duplicate
     const exists = categories.some((c) => c.name.trim() === newCatName.trim());
     if (exists) {
       alert('이미 존재하는 카테고리 이름입니다.');
@@ -202,10 +254,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setEditEmoji(cat.emoji || '🌱');
     setEditColor(cat.color || '#F7CAC9');
     setEditDesc(cat.description || '');
-  };
-
-  const cancelEditCategory = () => {
-    setEditingCatId(null);
   };
 
   const saveEditCategory = (id: number | string) => {
@@ -233,6 +281,91 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     }
   };
 
+  // Notice Handlers
+  const handleNoticeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNoticeTitle.trim()) {
+      alert('공지 내용을 입력해주세요.');
+      return;
+    }
+    onAddNotice({
+      tag: newNoticeTag.trim() || '알림',
+      title: newNoticeTitle.trim(),
+      date: newNoticeDate.trim() || undefined
+    });
+    setNewNoticeTitle('');
+    setNewNoticeDate('');
+    alert('새 공지사항이 추가되었습니다!');
+  };
+
+  const startEditNotice = (n: NoticeItem) => {
+    setEditingNoticeId(n.id);
+    setEditNoticeTag(n.tag);
+    setEditNoticeTitle(n.title);
+    setEditNoticeDate(n.date || '');
+  };
+
+  const saveEditNotice = (id: number | string) => {
+    if (!editNoticeTitle.trim()) {
+      alert('공지 내용을 입력해주세요.');
+      return;
+    }
+    onUpdateNotice(id, {
+      tag: editNoticeTag.trim() || '알림',
+      title: editNoticeTitle.trim(),
+      date: editNoticeDate.trim() || undefined
+    });
+    setEditingNoticeId(null);
+  };
+
+  // Gallery Handlers
+  const handleGallerySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newGalleryTitle.trim()) {
+      alert('활동 제목을 입력해주세요.');
+      return;
+    }
+    onAddGalleryItem({
+      title: newGalleryTitle.trim(),
+      emoji: newGalleryEmoji,
+      color: newGalleryColor,
+      description: newGalleryDesc.trim() || undefined,
+      imageUrl: newGalleryImg.trim() || undefined,
+      date: newGalleryDate.trim() || undefined
+    });
+    setNewGalleryTitle('');
+    setNewGalleryDesc('');
+    setNewGalleryImg('');
+    setNewGalleryDate('');
+    alert('새 갤러리 활동이 추가되었습니다!');
+  };
+
+  const startEditGallery = (item: GalleryItem) => {
+    setEditingGalleryId(item.id);
+    setEditGalleryTitle(item.title);
+    setEditGalleryEmoji(item.emoji || '🎨');
+    setEditGalleryColor(item.color || '#F7CAC9');
+    setEditGalleryDesc(item.description || '');
+    setEditGalleryImg(item.imageUrl || '');
+    setEditGalleryDate(item.date || '');
+  };
+
+  const saveEditGallery = (id: number | string) => {
+    if (!editGalleryTitle.trim()) {
+      alert('활동 제목을 입력해주세요.');
+      return;
+    }
+    onUpdateGalleryItem(id, {
+      title: editGalleryTitle.trim(),
+      emoji: editGalleryEmoji,
+      color: editGalleryColor,
+      description: editGalleryDesc.trim() || undefined,
+      imageUrl: editGalleryImg.trim() || undefined,
+      date: editGalleryDate.trim() || undefined
+    });
+    setEditingGalleryId(null);
+  };
+
   const handleCopyCode = () => {
     navigator.clipboard.writeText(SAMPLE_GAS_CODE);
     setCopiedCode(true);
@@ -247,7 +380,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
         <h2 className="text-xl font-bold text-gray-800 mb-2">선생님 관리자 인증</h2>
         <p className="text-xs text-gray-400 mb-6">
-          카테고리 설정, 학생 명단 및 구글 시트 연동을 위해 관리자 비밀번호를 입력해주세요.
+          카테고리, 공지사항, 갤러리, 학생 명단 및 구글 시트 관리를 위해 비밀번호를 입력해주세요.
         </p>
 
         <form onSubmit={handleAuthSubmit} className="space-y-4">
@@ -285,7 +418,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         <button
           id="admin-tab-categories"
           onClick={() => setActiveTab('categories')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'categories'
               ? 'bg-[#F7CAC9] text-white shadow-xs'
               : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
@@ -296,11 +429,37 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </button>
 
         <button
+          id="admin-tab-notices"
+          onClick={() => setActiveTab('notices')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            activeTab === 'notices'
+              ? 'bg-[#92A8D1] text-white shadow-xs'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+          }`}
+        >
+          <Megaphone className="w-4 h-4" />
+          <span>공지사항 관리</span>
+        </button>
+
+        <button
+          id="admin-tab-gallery"
+          onClick={() => setActiveTab('gallery')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            activeTab === 'gallery'
+              ? 'bg-[#FCE1B5] text-amber-900 shadow-xs'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+          }`}
+        >
+          <ImageIcon className="w-4 h-4" />
+          <span>갤러리 관리</span>
+        </button>
+
+        <button
           id="admin-tab-students"
           onClick={() => setActiveTab('students')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'students'
-              ? 'bg-[#92A8D1] text-white shadow-xs'
+              ? 'bg-[#A8E6CF] text-emerald-900 shadow-xs'
               : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
           }`}
         >
@@ -311,9 +470,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         <button
           id="admin-tab-gas"
           onClick={() => setActiveTab('gas')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'gas'
-              ? 'bg-[#92A8D1] text-white shadow-xs'
+              ? 'bg-indigo-400 text-white shadow-xs'
               : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
           }`}
         >
@@ -324,7 +483,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         <button
           id="admin-tab-stats"
           onClick={() => setActiveTab('stats')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'stats'
               ? 'bg-gray-700 text-white shadow-xs'
               : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
@@ -351,7 +510,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 </div>
               </div>
               <span className="text-xs font-semibold text-gray-400">
-                총 {categories.length}개 등록됨
+                총 {categories.length}개
               </span>
             </div>
 
@@ -389,7 +548,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
               {/* Emoji & Color Selectors */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-                {/* Emoji Selector */}
                 <div>
                   <label className="block text-xs font-bold text-gray-600 mb-1.5">
                     대표 아이콘 (이모지)
@@ -420,7 +578,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   </div>
                 </div>
 
-                {/* Color Selector */}
                 <div>
                   <label className="block text-xs font-bold text-gray-600 mb-1.5">
                     테마 색상
@@ -445,7 +602,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 </div>
               </div>
 
-              {/* Submit Button */}
               <div className="flex justify-end pt-2">
                 <button
                   id="add-category-btn"
@@ -483,7 +639,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-[#6B84B5]">카테고리 정보 수정 중</span>
                         <button
-                          onClick={cancelEditCategory}
+                          onClick={() => setEditingCatId(null)}
                           className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
                         >
                           <X className="w-4 h-4" />
@@ -515,7 +671,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         </div>
                       </div>
 
-                      {/* Emojis & Colors */}
                       <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-gray-200">
                         <div className="flex items-center gap-1">
                           <span className="text-[11px] font-bold text-gray-500 mr-1">아이콘:</span>
@@ -552,7 +707,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       <div className="flex justify-end gap-2 pt-1">
                         <button
                           type="button"
-                          onClick={cancelEditCategory}
+                          onClick={() => setEditingCatId(null)}
                           className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer"
                         >
                           취소
@@ -605,7 +760,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                       <button
                         onClick={() => startEditCategory(cat)}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-600 bg-white hover:bg-gray-100 border border-gray-200 transition-colors cursor-pointer"
-                        title="카테고리 수정"
                       >
                         <Edit3 className="w-3.5 h-3.5 text-gray-400" />
                         <span className="hidden sm:inline">수정</span>
@@ -627,7 +781,489 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
       )}
 
-      {/* 2. Student Accounts Management Tab */}
+      {/* 2. Notice Management Tab */}
+      {activeTab === 'notices' && (
+        <div className="space-y-6">
+          {/* Add Notice Form */}
+          <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#92A8D1]/30 flex items-center justify-center text-[#6B84B5]">
+                  <Megaphone className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-800">새 학급 공지사항 추가</h3>
+                  <p className="text-xs text-gray-400">오른쪽 사이드바에 표시될 학급 알림과 준비물을 등록합니다.</p>
+                </div>
+              </div>
+              <span className="text-xs font-semibold text-gray-400">
+                총 {notices.length}개
+              </span>
+            </div>
+
+            <form onSubmit={handleNoticeSubmit} className="space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">
+                    태그 구분 (예: Next Week, 숙제, 준비물)
+                  </label>
+                  <input
+                    type="text"
+                    value={newNoticeTag}
+                    onChange={(e) => setNewNoticeTag(e.target.value)}
+                    placeholder="알림 / 숙제 / 준비물 등"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 focus:border-[#92A8D1] rounded-2xl text-xs sm:text-sm text-gray-800 outline-none"
+                    required
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-gray-600 mb-1">
+                    공지 내용 <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newNoticeTitle}
+                    onChange={(e) => setNewNoticeTitle(e.target.value)}
+                    placeholder="예: 내일 체육복과 개인 물병 꼭 지참하기"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 focus:border-[#92A8D1] rounded-2xl text-xs sm:text-sm text-gray-800 outline-none"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">
+                    기간 / 일자 (선택)
+                  </label>
+                  <input
+                    type="text"
+                    value={newNoticeDate}
+                    onChange={(e) => setNewNoticeDate(e.target.value)}
+                    placeholder="예: 8월 4주차 / 매일 / 8.16(금)"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 focus:border-[#92A8D1] rounded-2xl text-xs sm:text-sm text-gray-800 outline-none"
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 rounded-2xl text-white font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+                    style={{ backgroundColor: '#92A8D1' }}
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>공지사항 추가하기</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          {/* Current Notices List with Edit & Delete */}
+          <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">
+            <h3 className="text-base font-bold text-gray-800 mb-1">등록된 공지사항 목록</h3>
+            <p className="text-xs text-gray-400 mb-4">공지사항을 수정하거나 만료된 알림을 삭제할 수 있습니다.</p>
+
+            <div className="space-y-3">
+              {notices.map((n) => {
+                const isEditing = editingNoticeId === n.id;
+                if (isEditing) {
+                  return (
+                    <div
+                      key={n.id}
+                      className="p-4 rounded-2xl bg-gray-50 border-2 border-[#92A8D1] space-y-3"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-[#6B84B5]">공지사항 수정</span>
+                        <button
+                          onClick={() => setEditingNoticeId(null)}
+                          className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <input
+                          type="text"
+                          value={editNoticeTag}
+                          onChange={(e) => setEditNoticeTag(e.target.value)}
+                          placeholder="태그 (예: 숙제)"
+                          className="px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none"
+                        />
+                        <input
+                          type="text"
+                          value={editNoticeTitle}
+                          onChange={(e) => setEditNoticeTitle(e.target.value)}
+                          placeholder="공지 내용"
+                          className="sm:col-span-2 px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none"
+                        />
+                      </div>
+
+                      <div className="flex justify-between items-center pt-1">
+                        <input
+                          type="text"
+                          value={editNoticeDate}
+                          onChange={(e) => setEditNoticeDate(e.target.value)}
+                          placeholder="날짜/주차 (예: 8월 4주차)"
+                          className="w-48 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs outline-none"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditingNoticeId(null)}
+                            className="px-3 py-1.5 rounded-xl text-xs text-gray-500 hover:bg-gray-200 cursor-pointer"
+                          >
+                            취소
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => saveEditNotice(n.id)}
+                            className="px-4 py-1.5 rounded-xl text-xs font-bold text-white shadow-xs cursor-pointer"
+                            style={{ backgroundColor: '#92A8D1' }}
+                          >
+                            저장
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={n.id}
+                    className="p-4 rounded-2xl bg-gray-50/70 border border-gray-100 flex items-center justify-between gap-3 hover:bg-white hover:border-[#92A8D1]/40 transition-all"
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-[#92A8D1]/20 text-[#6B84B5] shrink-0 mt-0.5">
+                        {n.tag}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs sm:text-sm font-bold text-gray-800 break-keep">
+                          {n.title}
+                        </p>
+                        {n.date && (
+                          <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            <span>{n.date}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => startEditNotice(n)}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-600 bg-white hover:bg-gray-100 border border-gray-200 transition-colors cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-gray-400" />
+                        <span className="hidden sm:inline">수정</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm('이 공지사항을 삭제하시겠습니까?')) {
+                            onDeleteNotice(n.id);
+                          }
+                        }}
+                        className="p-1.5 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Gallery Activities Management Tab */}
+      {activeTab === 'gallery' && (
+        <div className="space-y-6">
+          {/* Add Gallery Activity */}
+          <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#FCE1B5]/60 flex items-center justify-center text-amber-800">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-800">새 학급 갤러리 활동 추가</h3>
+                  <p className="text-xs text-gray-400">오른쪽 사이드바 갤러리 및 모달 팝업에 표시될 작품/활동을 등록합니다.</p>
+                </div>
+              </div>
+              <span className="text-xs font-semibold text-gray-400">
+                총 {gallery.length}개
+              </span>
+            </div>
+
+            <form onSubmit={handleGallerySubmit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">
+                    활동/작품 제목 <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newGalleryTitle}
+                    onChange={(e) => setNewGalleryTitle(e.target.value)}
+                    placeholder="예: 가을 풍경화 그리기, 과학 실험전"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 focus:border-[#FCE1B5] rounded-2xl text-xs sm:text-sm text-gray-800 outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">
+                    활동 일자/시기 (선택)
+                  </label>
+                  <input
+                    type="text"
+                    value={newGalleryDate}
+                    onChange={(e) => setNewGalleryDate(e.target.value)}
+                    placeholder="예: 2026. 8. 15 / 1학기"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 focus:border-[#FCE1B5] rounded-2xl text-xs sm:text-sm text-gray-800 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-1">
+                  활동 설명
+                </label>
+                <textarea
+                  rows={2}
+                  value={newGalleryDesc}
+                  onChange={(e) => setNewGalleryDesc(e.target.value)}
+                  placeholder="활동 내용이나 친구들이 함께 만든 작품에 대한 소개를 작성해주세요..."
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 focus:border-[#FCE1B5] rounded-2xl text-xs text-gray-800 outline-none resize-none"
+                />
+              </div>
+
+              {/* Emoji & Color */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1.5">
+                    대표 이모지
+                  </label>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {PRESET_EMOJIS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setNewGalleryEmoji(emoji)}
+                        className={`w-8 h-8 rounded-xl text-sm flex items-center justify-center transition-all cursor-pointer ${
+                          newGalleryEmoji === emoji
+                            ? 'bg-[#FCE1B5] ring-2 ring-amber-500 scale-110 shadow-xs'
+                            : 'bg-gray-50 hover:bg-gray-100'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                    <input
+                      type="text"
+                      maxLength={2}
+                      value={newGalleryEmoji}
+                      onChange={(e) => setNewGalleryEmoji(e.target.value)}
+                      title="직접 입력"
+                      className="w-8 h-8 text-center bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1.5">
+                    배경 테마 색상
+                  </label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {PRESET_COLORS.map((col) => (
+                      <button
+                        key={col.value}
+                        type="button"
+                        onClick={() => setNewGalleryColor(col.value)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
+                          newGalleryColor === col.value
+                            ? 'border-gray-800 ring-2 ring-gray-400 bg-white shadow-xs font-bold'
+                            : 'border-gray-200 bg-gray-50 hover:bg-white'
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded-full ${col.bgClass}`} />
+                        <span className="text-gray-700 text-[11px]">{col.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Optional Image URL */}
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-1">
+                  사진 이미지 웹 URL (선택)
+                </label>
+                <input
+                  type="url"
+                  value={newGalleryImg}
+                  onChange={(e) => setNewGalleryImg(e.target.value)}
+                  placeholder="https://images.unsplash.com/... 또는 웹 이미지 주소"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 focus:border-[#FCE1B5] rounded-2xl text-xs text-gray-800 outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-2xl text-amber-900 font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+                  style={{ backgroundColor: '#FCE1B5' }}
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>갤러리 활동 추가하기</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Current Gallery List */}
+          <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">
+            <h3 className="text-base font-bold text-gray-800 mb-1">등록된 갤러리 활동 목록</h3>
+            <p className="text-xs text-gray-400 mb-4">활동 카드 내용과 사진을 수정하거나 삭제할 수 있습니다.</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {gallery.map((item) => {
+                const isEditing = editingGalleryId === item.id;
+                if (isEditing) {
+                  return (
+                    <div
+                      key={item.id}
+                      className="sm:col-span-2 p-4 rounded-2xl bg-gray-50 border-2 border-amber-300 space-y-3"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-amber-900">갤러리 활동 수정</span>
+                        <button
+                          onClick={() => setEditingGalleryId(null)}
+                          className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <input
+                          type="text"
+                          value={editGalleryTitle}
+                          onChange={(e) => setEditGalleryTitle(e.target.value)}
+                          placeholder="제목"
+                          className="px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none"
+                        />
+                        <input
+                          type="text"
+                          value={editGalleryDate}
+                          onChange={(e) => setEditGalleryDate(e.target.value)}
+                          placeholder="일자/시기"
+                          className="px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none"
+                        />
+                      </div>
+
+                      <input
+                        type="text"
+                        value={editGalleryDesc}
+                        onChange={(e) => setEditGalleryDesc(e.target.value)}
+                        placeholder="설명"
+                        className="w-full px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none"
+                      />
+
+                      <input
+                        type="url"
+                        value={editGalleryImg}
+                        onChange={(e) => setEditGalleryImg(e.target.value)}
+                        placeholder="이미지 웹 URL"
+                        className="w-full px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none"
+                      />
+
+                      <div className="flex justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingGalleryId(null)}
+                          className="px-3 py-1.5 rounded-xl text-xs text-gray-500 hover:bg-gray-200 cursor-pointer"
+                        >
+                          취소
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => saveEditGallery(item.id)}
+                          className="px-4 py-1.5 rounded-xl text-xs font-bold text-amber-900 shadow-xs cursor-pointer"
+                          style={{ backgroundColor: '#FCE1B5' }}
+                        >
+                          저장
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={item.id}
+                    className="p-4 rounded-2xl bg-gray-50/70 border border-gray-100 flex items-center justify-between gap-3 hover:bg-white hover:border-[#FCE1B5] transition-all"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shrink-0 shadow-2xs border border-white/60"
+                        style={{ backgroundColor: `${item.color || '#F7CAC9'}40` }}
+                      >
+                        {item.imageUrl ? (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.title}
+                            className="w-full h-full object-cover rounded-2xl"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          item.emoji || '🎨'
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs sm:text-sm font-bold text-gray-800 truncate">
+                          {item.title}
+                        </h4>
+                        <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                          {item.description || '학급 활동 기록'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => startEditGallery(item)}
+                        className="p-1.5 rounded-xl text-gray-500 hover:text-gray-800 bg-white hover:bg-gray-100 border border-gray-200 transition-colors cursor-pointer"
+                        title="수정"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`'${item.title}' 갤러리 활동을 삭제하시겠습니까?`)) {
+                            onDeleteGalleryItem(item.id);
+                          }
+                        }}
+                        className="p-1.5 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                        title="삭제"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Student Accounts Management Tab */}
       {activeTab === 'students' && (
         <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">
           <div className="flex items-center gap-2 mb-4">
@@ -704,7 +1340,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
       )}
 
-      {/* 3. Google Sheets (GAS) Tab */}
+      {/* 5. Google Sheets (GAS) Tab */}
       {activeTab === 'gas' && (
         <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 border-t-4 border-t-[#92A8D1]">
           <div className="flex items-center justify-between mb-3">
@@ -774,7 +1410,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
       )}
 
-      {/* 4. Statistics & Reset Tab */}
+      {/* 6. Statistics & Reset Tab */}
       {activeTab === 'stats' && (
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">

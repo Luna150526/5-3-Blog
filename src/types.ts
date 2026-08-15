@@ -16,6 +16,23 @@ export interface Category {
   description?: string;
 }
 
+export interface NoticeItem {
+  id: number | string;
+  tag: string;
+  title: string;
+  date?: string;
+}
+
+export interface GalleryItem {
+  id: number | string;
+  title: string;
+  emoji?: string;
+  color?: string;
+  imageUrl?: string;
+  description?: string;
+  date?: string;
+}
+
 export interface Post {
   id: number | string;
   author: string;
@@ -40,6 +57,8 @@ export interface Database {
   Posts: Post[];
   Comments: Comment[];
   Categories?: Category[];
+  Notices?: NoticeItem[];
+  Gallery?: GalleryItem[];
   Settings: Record<string, any>[];
 }
 

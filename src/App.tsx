@@ -6,11 +6,11 @@ import { LoginCard } from './components/LoginCard';
 import { BlogList } from './components/BlogList';
 import { ControlPanel } from './components/ControlPanel';
 import { StudentDirectory } from './components/StudentDirectory';
-import { Database, Student, ViewType, Post, Comment, Category } from './types';
-import { INITIAL_DB, DEFAULT_CATEGORIES } from './data/initialData';
+import { Database, Student, ViewType, Post, Comment, Category, NoticeItem, GalleryItem } from './types';
+import { INITIAL_DB, DEFAULT_CATEGORIES, DEFAULT_NOTICES, DEFAULT_GALLERY } from './data/initialData';
 import { Sparkles, Megaphone, Heart } from 'lucide-react';
 
-const LOCAL_STORAGE_DB_KEY = 'class_5_3_db_v3';
+const LOCAL_STORAGE_DB_KEY = 'class_5_3_db_v4';
 const LOCAL_STORAGE_GAS_KEY = 'class_gas_url';
 const LOCAL_STORAGE_USER_KEY = 'class_logged_user';
 
@@ -32,7 +32,13 @@ export default function App() {
             ...parsed,
             Categories: Array.isArray(parsed.Categories) && parsed.Categories.length > 0
               ? parsed.Categories
-              : DEFAULT_CATEGORIES
+              : DEFAULT_CATEGORIES,
+            Notices: Array.isArray(parsed.Notices) && parsed.Notices.length > 0
+              ? parsed.Notices
+              : DEFAULT_NOTICES,
+            Gallery: Array.isArray(parsed.Gallery) && parsed.Gallery.length > 0
+              ? parsed.Gallery
+              : DEFAULT_GALLERY
           };
         }
       }
@@ -60,6 +66,8 @@ export default function App() {
   const [filterTag, setFilterTag] = useState<string | null>(null);
 
   const categories = db.Categories && db.Categories.length > 0 ? db.Categories : DEFAULT_CATEGORIES;
+  const notices = db.Notices && db.Notices.length > 0 ? db.Notices : DEFAULT_NOTICES;
+  const gallery = db.Gallery && db.Gallery.length > 0 ? db.Gallery : DEFAULT_GALLERY;
 
   // Sync state to local storage
   useEffect(() => {
@@ -84,6 +92,8 @@ export default function App() {
             Posts: Array.isArray(data.Posts) && data.Posts.length > 0 ? data.Posts : prev.Posts,
             Comments: Array.isArray(data.Comments) ? data.Comments : prev.Comments,
             Categories: Array.isArray(data.Categories) && data.Categories.length > 0 ? data.Categories : prev.Categories,
+            Notices: Array.isArray(data.Notices) && data.Notices.length > 0 ? data.Notices : prev.Notices,
+            Gallery: Array.isArray(data.Gallery) && data.Gallery.length > 0 ? data.Gallery : prev.Gallery,
             Settings: Array.isArray(data.Settings) ? data.Settings : prev.Settings
           }));
         }
@@ -231,7 +241,7 @@ export default function App() {
     }));
   };
 
-  // Add Student
+  // Student Handlers
   const handleAddStudent = (studentData: {
     name: string;
     pw: string;
@@ -250,7 +260,6 @@ export default function App() {
     apiCall('Students', 'add', newStudent);
   };
 
-  // Delete Student
   const handleDeleteStudent = (studentId: number | string) => {
     setDb((prev) => ({
       ...prev,
@@ -293,7 +302,6 @@ export default function App() {
         return cat;
       });
 
-      // Also update any posts that had the old category name to the new name
       const updatedPosts = oldName && oldName !== data.name
         ? prev.Posts.map((p) => (p.category === oldName ? { ...p, category: data.name } : p))
         : prev.Posts;
@@ -312,6 +320,98 @@ export default function App() {
       return {
         ...prev,
         Categories: existingCategories.filter((c) => String(c.id) !== String(id))
+      };
+    });
+  };
+
+  // Notice Handlers
+  const handleAddNotice = (data: { tag: string; title: string; date?: string }) => {
+    const newNotice: NoticeItem = {
+      id: Date.now(),
+      tag: data.tag,
+      title: data.title,
+      date: data.date
+    };
+    setDb((prev) => ({
+      ...prev,
+      Notices: [...(prev.Notices || DEFAULT_NOTICES), newNotice]
+    }));
+    apiCall('Notices', 'add', newNotice);
+  };
+
+  const handleUpdateNotice = (
+    id: number | string,
+    data: { tag: string; title: string; date?: string }
+  ) => {
+    setDb((prev) => {
+      const existingNotices = prev.Notices || DEFAULT_NOTICES;
+      return {
+        ...prev,
+        Notices: existingNotices.map((n) =>
+          String(n.id) === String(id) ? { ...n, ...data } : n
+        )
+      };
+    });
+  };
+
+  const handleDeleteNotice = (id: number | string) => {
+    setDb((prev) => {
+      const existingNotices = prev.Notices || DEFAULT_NOTICES;
+      return {
+        ...prev,
+        Notices: existingNotices.filter((n) => String(n.id) !== String(id))
+      };
+    });
+  };
+
+  // Gallery Handlers
+  const handleAddGalleryItem = (data: {
+    title: string;
+    emoji?: string;
+    color?: string;
+    imageUrl?: string;
+    description?: string;
+    date?: string;
+  }) => {
+    const newItem: GalleryItem = {
+      id: Date.now(),
+      ...data
+    };
+    setDb((prev) => ({
+      ...prev,
+      Gallery: [...(prev.Gallery || DEFAULT_GALLERY), newItem]
+    }));
+    apiCall('Gallery', 'add', newItem);
+  };
+
+  const handleUpdateGalleryItem = (
+    id: number | string,
+    data: {
+      title: string;
+      emoji?: string;
+      color?: string;
+      imageUrl?: string;
+      description?: string;
+      date?: string;
+    }
+  ) => {
+    setDb((prev) => {
+      const existingGallery = prev.Gallery || DEFAULT_GALLERY;
+      return {
+        ...prev,
+        Gallery: existingGallery.map((g) =>
+          String(g.id) === String(id) ? { ...g, ...data } : g
+        )
+      };
+    });
+  };
+
+  const handleDeleteGalleryItem = (id: number | string) => {
+    setDb((prev) => {
+      const existingGallery = prev.Gallery || DEFAULT_GALLERY;
+      return {
+        ...prev,
+        Gallery: existingGallery.filter((g) => String(g.id) !== String(id))
       };
     });
   };
@@ -397,7 +497,7 @@ export default function App() {
               <div>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">오늘의 학급 알림</p>
                 <p className="text-xs sm:text-sm font-semibold text-gray-700 leading-snug">
-                  배려와 존중으로 함께 성장하는 5학년 3반! 친구의 글에 따뜻한 응원의 댓글을 남겨보세요. ✨
+                  {notices.length > 0 ? notices[0].title : '배려와 존중으로 함께 성장하는 5학년 3반!'} ✨
                 </p>
               </div>
             </div>
@@ -500,6 +600,8 @@ export default function App() {
             <ControlPanel
               db={db}
               categories={categories}
+              notices={notices}
+              gallery={gallery}
               gasUrl={gasUrl}
               onSaveGasUrl={handleSaveGasUrl}
               onAddStudent={handleAddStudent}
@@ -507,13 +609,22 @@ export default function App() {
               onAddCategory={handleAddCategory}
               onUpdateCategory={handleUpdateCategory}
               onDeleteCategory={handleDeleteCategory}
+              onAddNotice={handleAddNotice}
+              onUpdateNotice={handleUpdateNotice}
+              onDeleteNotice={handleDeleteNotice}
+              onAddGalleryItem={handleAddGalleryItem}
+              onUpdateGalleryItem={handleUpdateGalleryItem}
+              onDeleteGalleryItem={handleDeleteGalleryItem}
               onResetData={handleResetData}
             />
           )}
         </main>
 
-        {/* Right Sidebar (Notices & Class Gallery) */}
-        <SidebarRight />
+        {/* Right Sidebar (Dynamic Notices & Class Gallery) */}
+        <SidebarRight
+          notices={notices}
+          gallery={gallery}
+        />
       </div>
 
       {/* Syncing Toast Indicator */}
