@@ -354,19 +354,19 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         <div className="flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-gray-400" />
           <span className="text-xs text-gray-500">
-            샘플 데이터로 초기화하거나 변경사항을 리셋할 수 있습니다.
+            데이터를 초기 상태로 리셋할 수 있습니다.
           </span>
         </div>
         <button
           onClick={() => {
-            if (window.confirm('기본 샘플 데이터로 복원하시겠습니까?')) {
+            if (window.confirm('기본 초기 상태로 복원하시겠습니까?')) {
               onResetData();
             }
           }}
           className="flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          <span>샘플 데이터로 초기화</span>
+          <span>데이터 초기화</span>
         </button>
       </div>
     </div>

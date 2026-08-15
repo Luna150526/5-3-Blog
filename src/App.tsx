@@ -10,7 +10,7 @@ import { Database, Student, ViewType, Post, Comment } from './types';
 import { INITIAL_DB } from './data/initialData';
 import { Sparkles, Megaphone, Heart } from 'lucide-react';
 
-const LOCAL_STORAGE_DB_KEY = 'class_5_3_db_v1';
+const LOCAL_STORAGE_DB_KEY = 'class_5_3_db_v2';
 const LOCAL_STORAGE_GAS_KEY = 'class_gas_url';
 const LOCAL_STORAGE_USER_KEY = 'class_logged_user';
 

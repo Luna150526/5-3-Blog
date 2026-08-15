@@ -26,12 +26,6 @@ export const LoginCard: React.FC<LoginCardProps> = ({ students, onLogin }) => {
     }
   };
 
-  const handleQuickLogin = (sampleStudent: Student) => {
-    setName(sampleStudent.name);
-    setPw(sampleStudent.pw);
-    onLogin(sampleStudent.name, sampleStudent.pw);
-  };
-
   return (
     <div id="login-card-container" className="bg-white rounded-[32px] p-6 sm:p-8 shadow-sm border border-gray-100 mb-6 relative overflow-hidden">
       {/* Decorative Pastel Background Accents */}
@@ -59,7 +53,7 @@ export const LoginCard: React.FC<LoginCardProps> = ({ students, onLogin }) => {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="예: 김민준"
+                placeholder="학생 이름을 입력하세요"
                 className="w-full pl-10 pr-4 py-3 bg-gray-50/80 border border-gray-200 focus:border-[#F7CAC9] focus:bg-white rounded-2xl outline-none text-sm transition-all text-gray-800"
                 required
               />
@@ -76,7 +70,7 @@ export const LoginCard: React.FC<LoginCardProps> = ({ students, onLogin }) => {
                 maxLength={4}
                 value={pw}
                 onChange={(e) => setPw(e.target.value)}
-                placeholder="4자리 숫자"
+                placeholder="4자리 비밀번호를 입력하세요"
                 className="w-full pl-10 pr-4 py-3 bg-gray-50/80 border border-gray-200 focus:border-[#92A8D1] focus:bg-white rounded-2xl outline-none text-sm transition-all text-gray-800"
                 required
               />
@@ -99,27 +93,6 @@ export const LoginCard: React.FC<LoginCardProps> = ({ students, onLogin }) => {
             <span>학급 블로그 입장하기</span>
           </button>
         </form>
-
-        {/* Quick Login for convenience */}
-        {students && students.length > 0 && (
-          <div className="mt-6 pt-5 border-t border-gray-100 text-center">
-            <p className="text-[11px] font-medium text-gray-400 mb-2.5">
-              💡 빠른 체험 로그인 (등록된 학생 클릭):
-            </p>
-            <div className="flex flex-wrap justify-center gap-1.5">
-              {students.slice(0, 5).map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => handleQuickLogin(s)}
-                  className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-50 hover:bg-[#F7CAC9]/30 text-gray-700 border border-gray-200 transition-colors cursor-pointer"
-                >
-                  👤 {s.name} <span className="text-[10px] text-gray-400">({s.pw})</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
