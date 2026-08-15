@@ -101,7 +101,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     if (adminPw === '0526') {
       setIsAuth(true);
     } else {
-      alert('관리자 비밀번호가 올바르지 않습니다. (기본: 0526)');
+      alert('관리자 비밀번호가 올바르지 않습니다.');
     }
   };
 
@@ -148,7 +148,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <input
               id="admin-pw-input"
               type="password"
-              placeholder="비밀번호 입력 (0526)"
+              placeholder="관리자 비밀번호를 입력하세요"
               value={adminPw}
               onChange={(e) => setAdminPw(e.target.value)}
               className="w-full pl-10 pr-4 py-3 bg-gray-50/80 border border-gray-200 focus:border-[#92A8D1] rounded-2xl outline-none text-sm text-gray-800 transition-all"
