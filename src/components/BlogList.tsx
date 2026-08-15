@@ -8,16 +8,17 @@ import {
   MessageCircle,
   Heart
 } from 'lucide-react';
-import { Post, Comment, Student } from '../types';
+import { Post, Comment, Student, Category } from '../types';
 
 interface BlogListProps {
   posts: Post[];
   comments: Comment[];
+  categories?: Category[];
   user: Student | null;
   filterUser?: string | null;
   filterTag?: string | null;
   onClearFilter?: () => void;
-  onAddPost: (content: string, category: Post['category'], emoji: string) => void;
+  onAddPost: (content: string, category: string, emoji: string) => void;
   onDeletePost: (postId: number | string) => void;
   onToggleLike: (postId: number | string) => void;
   onAddComment: (postId: number | string, text: string) => void;
@@ -25,12 +26,20 @@ interface BlogListProps {
   onOpenLogin: () => void;
 }
 
-const CATEGORIES: Post['category'][] = ['일상', '배움기록', '독서', '질문', '칭찬'];
-const EMOJI_OPTIONS = ['📝', '✨', '🪐', '📚', '🎮', '🎨', '⚽', '🌿', '💡', '💖'];
+const DEFAULT_CATEGORY_ITEMS: Category[] = [
+  { id: 1, name: '일상', emoji: '🌱', color: '#F7CAC9' },
+  { id: 2, name: '배움기록', emoji: '📝', color: '#92A8D1' },
+  { id: 3, name: '독서', emoji: '📚', color: '#FCE1B5' },
+  { id: 4, name: '질문', emoji: '💡', color: '#A8E6CF' },
+  { id: 5, name: '칭찬', emoji: '💖', color: '#DED2F9' }
+];
+
+const EMOJI_OPTIONS = ['📝', '✨', '🪐', '📚', '🎮', '🎨', '⚽', '🌿', '💡', '💖', '🎵', '🏆'];
 
 export const BlogList: React.FC<BlogListProps> = ({
   posts,
   comments,
+  categories = DEFAULT_CATEGORY_ITEMS,
   user,
   filterUser,
   filterTag,
@@ -42,9 +51,11 @@ export const BlogList: React.FC<BlogListProps> = ({
   onDeleteComment,
   onOpenLogin
 }) => {
+  const activeCategories = categories.length > 0 ? categories : DEFAULT_CATEGORY_ITEMS;
+
   const [content, setContent] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<Post['category']>('일상');
-  const [selectedEmoji, setSelectedEmoji] = useState('📝');
+  const [selectedCategory, setSelectedCategory] = useState<string>(activeCategories[0]?.name || '일상');
+  const [selectedEmoji, setSelectedEmoji] = useState(activeCategories[0]?.emoji || '📝');
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
@@ -81,6 +92,11 @@ export const BlogList: React.FC<BlogListProps> = ({
     }));
   };
 
+  // Helper to find category metadata
+  const getCatMeta = (catName?: string) => {
+    return activeCategories.find((c) => c.name === catName);
+  };
+
   return (
     <div className="space-y-6">
       {/* Active Filter Indicator if any */}
@@ -112,19 +128,25 @@ export const BlogList: React.FC<BlogListProps> = ({
         >
           🌟 전체 ({posts.length})
         </button>
-        {CATEGORIES.map((cat) => {
-          const count = posts.filter((p) => p.category === cat).length;
+        {activeCategories.map((cat) => {
+          const count = posts.filter((p) => p.category === cat.name).length;
+          const isSelected = selectedCategoryFilter === cat.name;
           return (
             <button
-              key={cat}
-              onClick={() => setSelectedCategoryFilter(cat || 'all')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                selectedCategoryFilter === cat
-                  ? 'bg-[#F7CAC9] text-white shadow-xs'
-                  : 'bg-white text-gray-500 hover:bg-[#F7CAC9]/20 border border-gray-100'
+              key={cat.id}
+              onClick={() => setSelectedCategoryFilter(cat.name)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1 ${
+                isSelected
+                  ? 'text-white shadow-xs'
+                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-100'
               }`}
+              style={{
+                backgroundColor: isSelected ? (cat.color || '#F7CAC9') : undefined
+              }}
             >
-              {cat} ({count})
+              <span>{cat.emoji || '🌱'}</span>
+              <span>{cat.name}</span>
+              <span className="opacity-80 text-[11px]">({count})</span>
             </button>
           );
         })}
@@ -134,8 +156,9 @@ export const BlogList: React.FC<BlogListProps> = ({
       {user ? (
         <div className="bg-white p-5 rounded-[32px] shadow-sm border-2 border-dashed border-[#F7CAC9] shrink-0">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-bold text-gray-600">
-              오늘은 어떤 일이 있었나요? {selectedEmoji}
+            <h4 className="text-sm font-bold text-gray-600 flex items-center gap-1.5">
+              <span>오늘은 어떤 일이 있었나요?</span>
+              <span className="text-base">{selectedEmoji}</span>
             </h4>
             <span className="text-xs text-gray-400 font-medium">5학년 3반 {user.name}</span>
           </div>
@@ -143,32 +166,39 @@ export const BlogList: React.FC<BlogListProps> = ({
           <form onSubmit={handlePostSubmit} className="space-y-3">
             {/* Quick Category & Emoji selectors */}
             <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-gray-50/70 rounded-2xl border border-gray-100 text-xs">
-              <div className="flex items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5 text-gray-400" />
-                {CATEGORIES.map((cat) => (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Tag className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                {activeCategories.map((cat) => (
                   <button
-                    key={cat}
+                    key={cat.id}
                     type="button"
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-2.5 py-1 rounded-xl font-semibold transition-all cursor-pointer ${
-                      selectedCategory === cat
-                        ? 'bg-[#F7CAC9] text-white'
-                        : 'bg-white text-gray-500 hover:bg-[#F7CAC9]/20'
+                    onClick={() => {
+                      setSelectedCategory(cat.name);
+                      if (cat.emoji) setSelectedEmoji(cat.emoji);
+                    }}
+                    className={`px-2.5 py-1 rounded-xl font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                      selectedCategory === cat.name
+                        ? 'text-white shadow-xs'
+                        : 'bg-white text-gray-500 hover:bg-gray-100'
                     }`}
+                    style={{
+                      backgroundColor: selectedCategory === cat.name ? (cat.color || '#F7CAC9') : undefined
+                    }}
                   >
-                    {cat}
+                    <span>{cat.emoji}</span>
+                    <span>{cat.name}</span>
                   </button>
                 ))}
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0">
                 <Smile className="w-3.5 h-3.5 text-gray-400" />
                 {EMOJI_OPTIONS.slice(0, 6).map((em) => (
                   <button
                     key={em}
                     type="button"
                     onClick={() => setSelectedEmoji(em)}
-                    className={`w-6 h-6 rounded-lg text-xs flex items-center justify-center transition-all ${
+                    className={`w-6 h-6 rounded-lg text-xs flex items-center justify-center transition-all cursor-pointer ${
                       selectedEmoji === em ? 'bg-white shadow-xs scale-110' : 'hover:scale-105'
                     }`}
                   >
@@ -236,7 +266,7 @@ export const BlogList: React.FC<BlogListProps> = ({
             const isMyPost = user && post.author === user.name;
             const isEven = idx % 2 === 0;
             const avatarBg = isEven ? 'bg-[#92A8D1]/20 text-[#92A8D1]' : 'bg-[#F7CAC9]/20 text-[#E89E9D]';
-            const categoryColor = isEven ? 'text-[#92A8D1]' : 'text-[#E89E9D]';
+            const catMeta = getCatMeta(post.category);
             const isExpanded = expandedComments[String(post.id)] ?? false;
 
             return (
@@ -258,9 +288,17 @@ export const BlogList: React.FC<BlogListProps> = ({
                         {post.author}
                         <span className="text-[10px] font-normal text-gray-400 ml-2">{post.date}</span>
                       </p>
-                      <p className={`text-xs font-medium ${categoryColor}`}>
-                        {post.category || '일상'} • {post.emoji || '📝'}
-                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span
+                          className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                          style={{
+                            backgroundColor: `${catMeta?.color || '#F7CAC9'}25`,
+                            color: catMeta?.color === '#F7CAC9' ? '#E89E9D' : catMeta?.color === '#92A8D1' ? '#6B84B5' : '#4B5563'
+                          }}
+                        >
+                          {catMeta?.emoji || post.emoji || '🌱'} {post.category || '일상'}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -271,7 +309,7 @@ export const BlogList: React.FC<BlogListProps> = ({
                           onDeletePost(post.id);
                         }
                       }}
-                      className="text-gray-300 hover:text-red-500 p-1 transition-colors"
+                      className="text-gray-300 hover:text-red-500 p-1 transition-colors cursor-pointer"
                       title="글 삭제"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -338,7 +376,7 @@ export const BlogList: React.FC<BlogListProps> = ({
                         {user && user.name === comment.author && (
                           <button
                             onClick={() => onDeleteComment(comment.id)}
-                            className="text-gray-300 hover:text-red-500 p-0.5"
+                            className="text-gray-300 hover:text-red-500 p-0.5 cursor-pointer"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -377,7 +415,7 @@ export const BlogList: React.FC<BlogListProps> = ({
                       <div className="text-center pt-2">
                         <button
                           onClick={onOpenLogin}
-                          className="text-xs text-[#92A8D1] font-semibold hover:underline"
+                          className="text-xs text-[#92A8D1] font-semibold hover:underline cursor-pointer"
                         >
                           로그인하고 친구에게 댓글 남기기 ✨
                         </button>

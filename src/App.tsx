@@ -6,11 +6,11 @@ import { LoginCard } from './components/LoginCard';
 import { BlogList } from './components/BlogList';
 import { ControlPanel } from './components/ControlPanel';
 import { StudentDirectory } from './components/StudentDirectory';
-import { Database, Student, ViewType, Post, Comment } from './types';
-import { INITIAL_DB } from './data/initialData';
+import { Database, Student, ViewType, Post, Comment, Category } from './types';
+import { INITIAL_DB, DEFAULT_CATEGORIES } from './data/initialData';
 import { Sparkles, Megaphone, Heart } from 'lucide-react';
 
-const LOCAL_STORAGE_DB_KEY = 'class_5_3_db_v2';
+const LOCAL_STORAGE_DB_KEY = 'class_5_3_db_v3';
 const LOCAL_STORAGE_GAS_KEY = 'class_gas_url';
 const LOCAL_STORAGE_USER_KEY = 'class_logged_user';
 
@@ -28,7 +28,12 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && Array.isArray(parsed.Students) && Array.isArray(parsed.Posts)) {
-          return parsed;
+          return {
+            ...parsed,
+            Categories: Array.isArray(parsed.Categories) && parsed.Categories.length > 0
+              ? parsed.Categories
+              : DEFAULT_CATEGORIES
+          };
         }
       }
     } catch (e) {
@@ -54,6 +59,8 @@ export default function App() {
   const [filterStudentName, setFilterStudentName] = useState<string | null>(null);
   const [filterTag, setFilterTag] = useState<string | null>(null);
 
+  const categories = db.Categories && db.Categories.length > 0 ? db.Categories : DEFAULT_CATEGORIES;
+
   // Sync state to local storage
   useEffect(() => {
     try {
@@ -76,6 +83,7 @@ export default function App() {
             Students: Array.isArray(data.Students) && data.Students.length > 0 ? data.Students : prev.Students,
             Posts: Array.isArray(data.Posts) && data.Posts.length > 0 ? data.Posts : prev.Posts,
             Comments: Array.isArray(data.Comments) ? data.Comments : prev.Comments,
+            Categories: Array.isArray(data.Categories) && data.Categories.length > 0 ? data.Categories : prev.Categories,
             Settings: Array.isArray(data.Settings) ? data.Settings : prev.Settings
           }));
         }
@@ -132,7 +140,7 @@ export default function App() {
   };
 
   // Add new post
-  const handleAddPost = (content: string, category: Post['category'], emoji: string) => {
+  const handleAddPost = (content: string, category: string, emoji: string) => {
     if (!user) return;
     const now = new Date();
     const formattedDate = `${now.getFullYear()}. ${now.getMonth() + 1}. ${now.getDate()}. ${
@@ -250,6 +258,64 @@ export default function App() {
     }));
   };
 
+  // Category Handlers
+  const handleAddCategory = (data: { name: string; emoji?: string; color?: string; description?: string }) => {
+    const newCategory: Category = {
+      id: Date.now(),
+      name: data.name,
+      emoji: data.emoji || '🌱',
+      color: data.color || '#F7CAC9',
+      description: data.description
+    };
+    setDb((prev) => ({
+      ...prev,
+      Categories: [...(prev.Categories || DEFAULT_CATEGORIES), newCategory]
+    }));
+    apiCall('Categories', 'add', newCategory);
+  };
+
+  const handleUpdateCategory = (
+    id: number | string,
+    data: { name: string; emoji?: string; color?: string; description?: string }
+  ) => {
+    setDb((prev) => {
+      const existingCategories = prev.Categories || DEFAULT_CATEGORIES;
+      const oldCat = existingCategories.find((c) => String(c.id) === String(id));
+      const oldName = oldCat?.name;
+
+      const updatedCategories = existingCategories.map((cat) => {
+        if (String(cat.id) === String(id)) {
+          return {
+            ...cat,
+            ...data
+          };
+        }
+        return cat;
+      });
+
+      // Also update any posts that had the old category name to the new name
+      const updatedPosts = oldName && oldName !== data.name
+        ? prev.Posts.map((p) => (p.category === oldName ? { ...p, category: data.name } : p))
+        : prev.Posts;
+
+      return {
+        ...prev,
+        Categories: updatedCategories,
+        Posts: updatedPosts
+      };
+    });
+  };
+
+  const handleDeleteCategory = (id: number | string) => {
+    setDb((prev) => {
+      const existingCategories = prev.Categories || DEFAULT_CATEGORIES;
+      return {
+        ...prev,
+        Categories: existingCategories.filter((c) => String(c.id) !== String(id))
+      };
+    });
+  };
+
   // Save GAS URL
   const handleSaveGasUrl = (url: string) => {
     setGasUrl(url);
@@ -266,7 +332,7 @@ export default function App() {
   const handleResetData = () => {
     setDb(INITIAL_DB);
     localStorage.setItem(LOCAL_STORAGE_DB_KEY, JSON.stringify(INITIAL_DB));
-    alert('기본 샘플 데이터로 복원되었습니다.');
+    alert('기본 데이터로 초기화되었습니다.');
   };
 
   const handleSelectStudentForFilter = (studentName: string) => {
@@ -347,6 +413,7 @@ export default function App() {
             <BlogList
               posts={db.Posts}
               comments={db.Comments}
+              categories={categories}
               user={user}
               filterUser={filterStudentName}
               filterTag={filterTag}
@@ -386,6 +453,7 @@ export default function App() {
                   <BlogList
                     posts={db.Posts}
                     comments={db.Comments}
+                    categories={categories}
                     user={user}
                     filterUser={user.name}
                     onClearFilter={handleClearFilters}
@@ -431,10 +499,14 @@ export default function App() {
           {view === 'control' && (
             <ControlPanel
               db={db}
+              categories={categories}
               gasUrl={gasUrl}
               onSaveGasUrl={handleSaveGasUrl}
               onAddStudent={handleAddStudent}
               onDeleteStudent={handleDeleteStudent}
+              onAddCategory={handleAddCategory}
+              onUpdateCategory={handleUpdateCategory}
+              onDeleteCategory={handleDeleteCategory}
               onResetData={handleResetData}
             />
           )}

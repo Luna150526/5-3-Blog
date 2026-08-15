@@ -8,12 +8,20 @@ export interface Student {
   bio?: string;
 }
 
+export interface Category {
+  id: number | string;
+  name: string;
+  emoji?: string;
+  color?: string;
+  description?: string;
+}
+
 export interface Post {
   id: number | string;
   author: string;
   content: string;
   date: string;
-  category?: '일상' | '배움기록' | '독서' | '질문' | '칭찬';
+  category?: string;
   likes?: number;
   likedBy?: string[];
   emoji?: string;
@@ -31,6 +39,7 @@ export interface Database {
   Students: Student[];
   Posts: Post[];
   Comments: Comment[];
+  Categories?: Category[];
   Settings: Record<string, any>[];
 }
 
