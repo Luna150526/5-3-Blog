@@ -1,0 +1,6 @@
+{
+  "name": "5학년 3반 학급 블로그",
+  "description": "로즈쿼츠 & 세레니티 테마의 5학년 3반 학급 블로그 및 소통 플랫폼",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
