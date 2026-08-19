@@ -6,9 +6,15 @@ import {
   Smile, 
   Sparkles,
   MessageCircle,
-  Heart
+  Heart,
+  PenLine,
+  MapPin,
+  Calendar,
+  Vote,
+  Link2,
+  Code2
 } from 'lucide-react';
-import { Post, Comment, Student, Category } from '../types';
+import { Post, Comment, Student, Category, RichBlock } from '../types';
 
 interface BlogListProps {
   posts: Post[];
@@ -18,12 +24,13 @@ interface BlogListProps {
   filterUser?: string | null;
   filterTag?: string | null;
   onClearFilter?: () => void;
-  onAddPost: (content: string, category: string, emoji: string) => void;
+  onAddPost: (content: string, category: string, emoji: string, title?: string, blocks?: RichBlock[]) => void;
   onDeletePost: (postId: number | string) => void;
   onToggleLike: (postId: number | string) => void;
   onAddComment: (postId: number | string, text: string) => void;
   onDeleteComment: (commentId: number | string) => void;
   onOpenLogin: () => void;
+  onOpenWrite?: () => void;
 }
 
 const DEFAULT_CATEGORY_ITEMS: Category[] = [
@@ -33,8 +40,6 @@ const DEFAULT_CATEGORY_ITEMS: Category[] = [
   { id: 4, name: '질문', emoji: '💡', color: '#A8E6CF' },
   { id: 5, name: '칭찬', emoji: '💖', color: '#DED2F9' }
 ];
-
-const EMOJI_OPTIONS = ['📝', '✨', '🪐', '📚', '🎮', '🎨', '⚽', '🌿', '💡', '💖', '🎵', '🏆'];
 
 export const BlogList: React.FC<BlogListProps> = ({
   posts,
@@ -49,13 +54,11 @@ export const BlogList: React.FC<BlogListProps> = ({
   onToggleLike,
   onAddComment,
   onDeleteComment,
-  onOpenLogin
+  onOpenLogin,
+  onOpenWrite
 }) => {
   const activeCategories = categories.length > 0 ? categories : DEFAULT_CATEGORY_ITEMS;
 
-  const [content, setContent] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>(activeCategories[0]?.name || '일상');
-  const [selectedEmoji, setSelectedEmoji] = useState(activeCategories[0]?.emoji || '📝');
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
@@ -63,18 +66,11 @@ export const BlogList: React.FC<BlogListProps> = ({
   const filteredPosts = posts
     .filter((p) => {
       if (filterUser && p.author !== filterUser) return false;
-      if (filterTag && !p.content.includes(filterTag) && p.category !== filterTag) return false;
+      if (filterTag && !p.content.includes(filterTag) && p.category !== filterTag && (!p.title || !p.title.includes(filterTag))) return false;
       if (selectedCategoryFilter !== 'all' && p.category !== selectedCategoryFilter) return false;
       return true;
     })
     .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
-
-  const handlePostSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!content.trim()) return;
-    onAddPost(content.trim(), selectedCategory, selectedEmoji);
-    setContent('');
-  };
 
   const handleCommentSubmit = (postId: number | string, e: React.FormEvent) => {
     e.preventDefault();
@@ -152,120 +148,83 @@ export const BlogList: React.FC<BlogListProps> = ({
         })}
       </div>
 
-      {/* Sleek Post Creator */}
-      {user ? (
-        <div className="bg-white p-5 rounded-[32px] shadow-sm border-2 border-dashed border-[#F7CAC9] shrink-0">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-bold text-gray-600 flex items-center gap-1.5">
-              <span>오늘은 어떤 일이 있었나요?</span>
-              <span className="text-base">{selectedEmoji}</span>
-            </h4>
-            <span className="text-xs text-gray-400 font-medium">5학년 3반 {user.name}</span>
-          </div>
-
-          <form onSubmit={handlePostSubmit} className="space-y-3">
-            {/* Quick Category & Emoji selectors */}
-            <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-gray-50/70 rounded-2xl border border-gray-100 text-xs">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <Tag className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                {activeCategories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedCategory(cat.name);
-                      if (cat.emoji) setSelectedEmoji(cat.emoji);
-                    }}
-                    className={`px-2.5 py-1 rounded-xl font-semibold transition-all cursor-pointer flex items-center gap-1 ${
-                      selectedCategory === cat.name
-                        ? 'text-white shadow-xs'
-                        : 'bg-white text-gray-500 hover:bg-gray-100'
-                    }`}
-                    style={{
-                      backgroundColor: selectedCategory === cat.name ? (cat.color || '#F7CAC9') : undefined
-                    }}
-                  >
-                    <span>{cat.emoji}</span>
-                    <span>{cat.name}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-1 shrink-0">
-                <Smile className="w-3.5 h-3.5 text-gray-400" />
-                {EMOJI_OPTIONS.slice(0, 6).map((em) => (
-                  <button
-                    key={em}
-                    type="button"
-                    onClick={() => setSelectedEmoji(em)}
-                    className={`w-6 h-6 rounded-lg text-xs flex items-center justify-center transition-all cursor-pointer ${
-                      selectedEmoji === em ? 'bg-white shadow-xs scale-110' : 'hover:scale-105'
-                    }`}
-                  >
-                    {em}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <textarea
-                id="post-content-input"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={2}
-                placeholder="즐거웠던 기억, 배움 기록, 친구에게 전하고 싶은 이야기를 남겨보세요..."
-                className="flex-grow bg-gray-50 focus:bg-white rounded-2xl p-4 text-sm text-gray-700 placeholder-gray-400 border border-gray-100 focus:border-[#F7CAC9] outline-none transition-all resize-none"
-                required
-              />
-              <button
-                id="post-submit-btn"
-                type="submit"
-                className="sm:w-32 py-3 sm:py-0 rounded-2xl text-white font-bold text-sm shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center"
-                style={{ backgroundColor: '#F7CAC9' }}
-              >
-                작성하기
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : (
-        <div className="bg-white p-5 rounded-[32px] shadow-sm border-2 border-dashed border-[#F7CAC9]/60 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#F7CAC9]/20 flex items-center justify-center text-lg">
-              ✨
+      {/* Write Post Prompt Card */}
+      <div className="bg-white p-5 rounded-[32px] shadow-sm border-2 border-dashed border-[#F7CAC9] shrink-0 transition-all hover:border-[#F7CAC9] group">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 text-left w-full sm:w-auto">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-xs shrink-0 group-hover:scale-105 transition-transform"
+              style={{ background: 'linear-gradient(135deg, #F7CAC9, #92A8D1)' }}
+            >
+              ✏️
             </div>
             <div>
-              <p className="text-sm font-bold text-gray-800">오늘은 어떤 일이 있었나요? 📝</p>
-              <p className="text-xs text-gray-400">로그인 후 나만의 즐거운 하루를 기록해보세요</p>
+              <h4 className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                <span>오늘은 어떤 일이 있었나요?</span>
+                <span className="text-xs font-normal text-gray-400">
+                  {user ? `(작성자: ${user.name} 학생)` : ''}
+                </span>
+              </h4>
+              <p className="text-xs text-gray-400">
+                사진, 스티커, 인용구, 투표 등을 넣어 나만의 멋진 블로그 글을 써보세요!
+              </p>
             </div>
           </div>
-          <button
-            onClick={onOpenLogin}
-            className="px-4 py-2.5 rounded-2xl text-white font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
-            style={{ backgroundColor: '#92A8D1' }}
-          >
-            로그인하기
-          </button>
+
+          <div className="w-full sm:w-auto flex justify-end">
+            <button
+              id="feed-open-write-btn"
+              onClick={() => {
+                if (!user) {
+                  onOpenLogin();
+                } else if (onOpenWrite) {
+                  onOpenWrite();
+                }
+              }}
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl text-white font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+              style={{ backgroundColor: '#F7CAC9' }}
+            >
+              <PenLine className="w-4 h-4" />
+              <span>스마트에디터로 글쓰기</span>
+            </button>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Posts Feed */}
       <div className="flex flex-col gap-4">
         {filteredPosts.length === 0 ? (
-          <div className="bg-white p-10 rounded-[32px] shadow-sm border border-gray-100 text-center">
-            <p className="text-2xl mb-2">🍃</p>
+          <div className="bg-white p-12 rounded-[32px] shadow-sm border border-gray-100 text-center">
+            <p className="text-3xl mb-2">🍃</p>
             <p className="text-sm font-bold text-gray-700 mb-1">등록된 게시글이 없습니다</p>
-            <p className="text-xs text-gray-400">첫 번째 이야기를 작성해보세요!</p>
+            <p className="text-xs text-gray-400 mb-4">5학년 3반의 첫 번째 멋진 이야기를 작성해보세요!</p>
+            <button
+              onClick={() => {
+                if (!user) onOpenLogin();
+                else if (onOpenWrite) onOpenWrite();
+              }}
+              className="px-5 py-2.5 rounded-2xl text-white text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+              style={{ backgroundColor: '#92A8D1' }}
+            >
+              <PenLine className="w-3.5 h-3.5" />
+              <span>새 글 쓰기</span>
+            </button>
           </div>
         ) : (
           filteredPosts.map((post, idx) => {
             const postComments = comments.filter((c) => String(c.postId) === String(post.id));
             const isLikedByMe = user && post.likedBy && post.likedBy.includes(user.name);
             const likeCount = post.likes || 0;
+            const isUserAdmin = user?.role === 'admin' || user?.name.includes('선생님') || user?.name.includes('관리자');
+            const isPostAdmin = post.isAdmin || post.author.includes('선생님') || post.author.includes('관리자');
             const isMyPost = user && post.author === user.name;
+            const canDeletePost = isMyPost || isUserAdmin;
             const isEven = idx % 2 === 0;
-            const avatarBg = isEven ? 'bg-[#92A8D1]/20 text-[#92A8D1]' : 'bg-[#F7CAC9]/20 text-[#E89E9D]';
+            const avatarBg = isPostAdmin
+              ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-300'
+              : isEven
+              ? 'bg-[#92A8D1]/20 text-[#92A8D1]'
+              : 'bg-[#F7CAC9]/20 text-[#E89E9D]';
             const catMeta = getCatMeta(post.category);
             const isExpanded = expandedComments[String(post.id)] ?? false;
 
@@ -273,7 +232,11 @@ export const BlogList: React.FC<BlogListProps> = ({
               <article
                 key={post.id}
                 id={`post-card-${post.id}`}
-                className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 shrink-0 transition-all hover:border-[#F7CAC9]/40"
+                className={`bg-white p-6 sm:p-7 rounded-[32px] shadow-sm border shrink-0 transition-all ${
+                  isPostAdmin
+                    ? 'border-amber-200/80 bg-gradient-to-b from-amber-50/20 to-white hover:border-amber-300'
+                    : 'border-gray-100 hover:border-[#F7CAC9]/40'
+                }`}
               >
                 {/* Header */}
                 <div className="flex justify-between items-start mb-4">
@@ -281,16 +244,23 @@ export const BlogList: React.FC<BlogListProps> = ({
                     <div
                       className={`w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center font-bold text-sm`}
                     >
-                      {post.author.slice(0, 1)}
+                      {isPostAdmin ? '👑' : post.author.slice(0, 1)}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-gray-800">
-                        {post.author}
-                        <span className="text-[10px] font-normal text-gray-400 ml-2">{post.date}</span>
-                      </p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-sm font-bold text-gray-800">
+                          {post.author}
+                        </p>
+                        {isPostAdmin && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200/60">
+                            👑 담임선생님
+                          </span>
+                        )}
+                        <span className="text-[10px] font-normal text-gray-400 ml-1">{post.date}</span>
+                      </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <span
-                          className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                          className="text-[11px] font-bold px-2.5 py-0.5 rounded-full"
                           style={{
                             backgroundColor: `${catMeta?.color || '#F7CAC9'}25`,
                             color: catMeta?.color === '#F7CAC9' ? '#E89E9D' : catMeta?.color === '#92A8D1' ? '#6B84B5' : '#4B5563'
@@ -302,25 +272,200 @@ export const BlogList: React.FC<BlogListProps> = ({
                     </div>
                   </div>
 
-                  {isMyPost && (
+                  {canDeletePost && (
                     <button
                       onClick={() => {
-                        if (window.confirm('이 글을 삭제하시겠습니까?')) {
+                        const confirmMsg = isMyPost
+                          ? '이 글을 삭제하시겠습니까?'
+                          : `관리자 권한으로 '${post.author}' 학생의 글을 삭제하시겠습니까?`;
+                        if (window.confirm(confirmMsg)) {
                           onDeletePost(post.id);
                         }
                       }}
-                      className="text-gray-300 hover:text-red-500 p-1 transition-colors cursor-pointer"
-                      title="글 삭제"
+                      className="text-gray-300 hover:text-red-500 p-1.5 rounded-xl hover:bg-red-50 transition-colors cursor-pointer"
+                      title={isMyPost ? '내 글 삭제' : '관리자 권한으로 삭제'}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
                 </div>
 
+                {/* Post Title if present */}
+                {post.title && (
+                  <h3 className="text-base sm:text-lg font-black text-gray-800 mb-2 tracking-tight">
+                    {post.title}
+                  </h3>
+                )}
+
                 {/* Body Content */}
-                <p className="text-sm text-gray-700 leading-relaxed mb-4 whitespace-pre-wrap">
-                  {post.content}
-                </p>
+                {post.content && (
+                  <p className="text-sm text-gray-700 leading-relaxed mb-4 whitespace-pre-wrap">
+                    {post.content}
+                  </p>
+                )}
+
+                {/* Rich Media Blocks */}
+                {post.blocks && post.blocks.length > 0 && (
+                  <div className="space-y-3.5 mb-4">
+                    {post.blocks.map((block) => (
+                      <div key={block.id} className="overflow-hidden">
+                        {/* Image Block */}
+                        {block.type === 'image' && (
+                          <div className="space-y-1.5 text-center my-2">
+                            <img
+                              src={block.url}
+                              alt="첨부된 사진"
+                              className="max-h-80 w-auto mx-auto rounded-2xl object-cover shadow-xs border border-gray-100"
+                              referrerPolicy="no-referrer"
+                            />
+                            {block.caption && (
+                              <p className="text-xs text-gray-400 italic">📷 {block.caption}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Quote Block */}
+                        {block.type === 'quote' && (
+                          <div
+                            className={`p-4 rounded-2xl my-2 ${
+                              block.quoteStyle === 'box'
+                                ? 'bg-[#F7CAC9]/15 border-2 border-[#F7CAC9]/40'
+                                : block.quoteStyle === 'speech'
+                                ? 'bg-blue-50/80 border border-blue-200 rounded-bl-none'
+                                : 'border-l-4 border-[#92A8D1] bg-gray-50/80 pl-4'
+                            }`}
+                          >
+                            <p className="text-sm font-semibold text-gray-700 italic leading-relaxed">
+                              &ldquo;{block.content}&rdquo;
+                            </p>
+                            {block.quoteAuthor && (
+                              <p className="text-xs text-gray-400 text-right mt-1 font-medium">
+                                — {block.quoteAuthor}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Divider Block */}
+                        {block.type === 'divider' && (
+                          <div className="py-2">
+                            {block.dividerStyle === 'dashed' && <div className="border-t-2 border-dashed border-gray-200" />}
+                            {block.dividerStyle === 'dotted' && <div className="border-t-2 border-dotted border-[#92A8D1]" />}
+                            {block.dividerStyle === 'curved' && (
+                              <div className="text-center text-gray-400 text-xs tracking-widest">~ • 🌸 • ~</div>
+                            )}
+                            {(!block.dividerStyle || block.dividerStyle === 'solid') && (
+                              <div className="border-t border-gray-200" />
+                            )}
+                          </div>
+                        )}
+
+                        {/* Sticker Block */}
+                        {block.type === 'sticker' && (
+                          <div className="text-center py-2">
+                            <span className="text-5xl inline-block transform hover:scale-110 transition-transform">
+                              {block.sticker}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Place Block */}
+                        {block.type === 'place' && (
+                          <div className="flex items-center gap-3 bg-emerald-50/70 p-3 rounded-2xl border border-emerald-100 text-xs">
+                            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-700">
+                              <MapPin className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-emerald-900">{block.placeName}</h4>
+                              {block.placeDesc && <p className="text-[11px] text-emerald-700">{block.placeDesc}</p>}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Poll Block */}
+                        {block.type === 'poll' && (
+                          <div className="bg-purple-50/70 p-4 rounded-2xl border border-purple-100 space-y-2 text-xs">
+                            <div className="flex items-center gap-2">
+                              <Vote className="w-4 h-4 text-purple-600" />
+                              <h4 className="font-bold text-purple-900">학급 투표: {block.pollQuestion}</h4>
+                            </div>
+                            <div className="space-y-1.5">
+                              {block.pollOptions?.map((opt) => (
+                                <div
+                                  key={opt.id}
+                                  className="bg-white p-2 rounded-xl border border-purple-100 font-medium text-gray-700 flex items-center justify-between"
+                                >
+                                  <span>{opt.text}</span>
+                                  <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">참여하기</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Schedule Block */}
+                        {block.type === 'schedule' && (
+                          <div className="flex items-center gap-3 bg-blue-50/70 p-3 rounded-2xl border border-blue-100 text-xs">
+                            <div className="w-8 h-8 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-700">
+                              <Calendar className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-blue-900">{block.scheduleTitle}</h4>
+                              <p className="text-[11px] text-blue-700">일시: {block.scheduleDate}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Code Block */}
+                        {block.type === 'code' && (
+                          <div className="bg-gray-900 text-gray-100 p-3.5 rounded-2xl font-mono text-xs overflow-x-auto">
+                            <div className="text-[10px] text-gray-400 mb-1 font-sans">{block.codeLanguage?.toUpperCase()}</div>
+                            <pre>{block.content}</pre>
+                          </div>
+                        )}
+
+                        {/* Math Formula Block */}
+                        {block.type === 'math' && (
+                          <div className="bg-teal-50/70 p-3 rounded-2xl border border-teal-200 text-center font-serif text-xs font-bold text-teal-900">
+                            수식: {block.content}
+                          </div>
+                        )}
+
+                        {/* Link Block */}
+                        {block.type === 'link' && (
+                          <a
+                            href={block.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 p-2.5 bg-gray-50 hover:bg-indigo-50/50 rounded-xl border border-gray-200 hover:border-indigo-300 text-xs text-indigo-600 font-semibold"
+                          >
+                            <Link2 className="w-3.5 h-3.5" />
+                            <span className="truncate">{block.content || block.url}</span>
+                          </a>
+                        )}
+
+                        {/* Table Block */}
+                        {block.type === 'table' && block.tableData && (
+                          <div className="overflow-x-auto my-2">
+                            <table className="w-full text-xs text-left border-collapse border border-gray-200 rounded-xl overflow-hidden">
+                              <tbody>
+                                {block.tableData.map((row, rIdx) => (
+                                  <tr key={rIdx} className={rIdx === 0 ? 'bg-gray-100 font-bold text-gray-800' : 'border-t border-gray-100'}>
+                                    {row.map((cell, cIdx) => (
+                                      <td key={cIdx} className="p-2 border-r border-gray-200 last:border-r-0">
+                                        {cell}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Reaction & Action Bar */}
                 <div className="flex items-center justify-between border-t border-gray-50 pt-4">
@@ -361,28 +506,45 @@ export const BlogList: React.FC<BlogListProps> = ({
                 {/* Expandable Comments Drawer */}
                 {(isExpanded || postComments.length > 0) && (
                   <div className="mt-4 pt-3 border-t border-gray-50 space-y-2">
-                    {postComments.map((comment) => (
-                      <div
-                        key={comment.id}
-                        className="bg-gray-50/80 p-2.5 rounded-2xl text-xs flex items-start justify-between gap-2 border border-gray-100"
-                      >
-                        <div>
-                          <span className="font-bold text-gray-800 mr-1.5">{comment.author}:</span>
-                          <span className="text-gray-600">{comment.text}</span>
-                          {comment.date && (
-                            <span className="text-[10px] text-gray-400 ml-2">{comment.date}</span>
+                    {postComments.map((comment) => {
+                      const isCommentAdmin = comment.isAdmin || comment.author.includes('선생님') || comment.author.includes('관리자');
+                      const canDeleteComment = user && (user.name === comment.author || isUserAdmin);
+
+                      return (
+                        <div
+                          key={comment.id}
+                          className={`p-2.5 rounded-2xl text-xs flex items-start justify-between gap-2 border ${
+                            isCommentAdmin
+                              ? 'bg-amber-50/80 border-amber-200/70'
+                              : 'bg-gray-50/80 border-gray-100'
+                          }`}
+                        >
+                          <div>
+                            <span className="font-bold text-gray-800 mr-1.5 flex-inline items-center gap-1">
+                              {isCommentAdmin && <span className="text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-md font-bold mr-1">👑 담임선생님</span>}
+                              {comment.author}:
+                            </span>
+                            <span className="text-gray-600">{comment.text}</span>
+                            {comment.date && (
+                              <span className="text-[10px] text-gray-400 ml-2">{comment.date}</span>
+                            )}
+                          </div>
+                          {canDeleteComment && (
+                            <button
+                              onClick={() => {
+                                if (window.confirm('이 댓글을 삭제하시겠습니까?')) {
+                                  onDeleteComment(comment.id);
+                                }
+                              }}
+                              className="text-gray-300 hover:text-red-500 p-0.5 cursor-pointer shrink-0"
+                              title={user?.name === comment.author ? '댓글 삭제' : '관리자 권한으로 삭제'}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
                           )}
                         </div>
-                        {user && user.name === comment.author && (
-                          <button
-                            onClick={() => onDeleteComment(comment.id)}
-                            className="text-gray-300 hover:text-red-500 p-0.5 cursor-pointer"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
 
                     {/* Comment input form */}
                     {user ? (

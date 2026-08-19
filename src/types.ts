@@ -6,6 +6,7 @@ export interface Student {
   class?: string;
   avatar?: string;
   bio?: string;
+  role?: 'admin' | 'student';
 }
 
 export interface Category {
@@ -33,15 +34,39 @@ export interface GalleryItem {
   date?: string;
 }
 
+export interface RichBlock {
+  id: string;
+  type: 'text' | 'image' | 'quote' | 'divider' | 'sticker' | 'link' | 'place' | 'code' | 'math' | 'poll' | 'schedule' | 'table';
+  content?: string;
+  url?: string;
+  caption?: string;
+  quoteStyle?: 'line' | 'box' | 'speech' | 'marks';
+  quoteAuthor?: string;
+  dividerStyle?: 'solid' | 'dashed' | 'dotted' | 'curved';
+  sticker?: string;
+  placeName?: string;
+  placeDesc?: string;
+  codeLanguage?: string;
+  pollQuestion?: string;
+  pollOptions?: { id: string; text: string; votes: number }[];
+  scheduleDate?: string;
+  scheduleTitle?: string;
+  tableData?: string[][];
+}
+
 export interface Post {
   id: number | string;
   author: string;
+  title?: string;
   content: string;
   date: string;
   category?: string;
   likes?: number;
   likedBy?: string[];
   emoji?: string;
+  blocks?: RichBlock[];
+  coverImage?: string;
+  isAdmin?: boolean;
 }
 
 export interface Comment {
@@ -50,6 +75,7 @@ export interface Comment {
   author: string;
   text: string;
   date?: string;
+  isAdmin?: boolean;
 }
 
 export interface Database {
@@ -62,4 +88,4 @@ export interface Database {
   Settings: Record<string, any>[];
 }
 
-export type ViewType = 'home' | 'myPosts' | 'control' | 'students';
+export type ViewType = 'home' | 'write' | 'myPosts' | 'control' | 'students';

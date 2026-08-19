@@ -4,18 +4,19 @@ import { SidebarLeft } from './components/SidebarLeft';
 import { SidebarRight } from './components/SidebarRight';
 import { LoginCard } from './components/LoginCard';
 import { BlogList } from './components/BlogList';
+import { BlogEditor } from './components/BlogEditor';
 import { ControlPanel } from './components/ControlPanel';
 import { StudentDirectory } from './components/StudentDirectory';
-import { Database, Student, ViewType, Post, Comment, Category, NoticeItem, GalleryItem } from './types';
+import { Database, Student, ViewType, Post, Comment, Category, NoticeItem, GalleryItem, RichBlock } from './types';
 import { INITIAL_DB, DEFAULT_CATEGORIES, DEFAULT_NOTICES, DEFAULT_GALLERY } from './data/initialData';
-import { Sparkles, Megaphone, Heart } from 'lucide-react';
+import { Sparkles, Megaphone, Heart, Crown } from 'lucide-react';
 
 const LOCAL_STORAGE_DB_KEY = 'class_5_3_db_v4';
 const LOCAL_STORAGE_GAS_KEY = 'class_gas_url';
 const LOCAL_STORAGE_USER_KEY = 'class_logged_user';
 
 export default function App() {
-  // Navigation View: 'home' | 'myPosts' | 'students' | 'control'
+  // Navigation View: 'home' | 'write' | 'myPosts' | 'students' | 'control'
   const [view, setView] = useState<ViewType>('home');
   const [gasUrl, setGasUrl] = useState<string>(() => {
     return localStorage.getItem(LOCAL_STORAGE_GAS_KEY) || '';
@@ -48,7 +49,7 @@ export default function App() {
     return INITIAL_DB;
   });
 
-  // Logged-in Student
+  // Logged-in Student or Teacher Admin
   const [user, setUser] = useState<Student | null>(() => {
     try {
       const savedUser = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
@@ -68,6 +69,8 @@ export default function App() {
   const categories = db.Categories && db.Categories.length > 0 ? db.Categories : DEFAULT_CATEGORIES;
   const notices = db.Notices && db.Notices.length > 0 ? db.Notices : DEFAULT_NOTICES;
   const gallery = db.Gallery && db.Gallery.length > 0 ? db.Gallery : DEFAULT_GALLERY;
+
+  const isUserAdmin = user?.role === 'admin' || user?.name.includes('선생님') || user?.name.includes('관리자');
 
   // Sync state to local storage
   useEffect(() => {
@@ -131,8 +134,32 @@ export default function App() {
     setLoading(false);
   };
 
-  // Student Login Handler
+  // Login Handler (Students & Admin Teacher)
   const handleLogin = (name: string, pw: string): boolean => {
+    // 1. Admin Login check
+    if (
+      (name.trim() === '선생님 (관리자)' ||
+        name.trim() === '선생님' ||
+        name.trim() === '관리자' ||
+        name.trim() === '담임선생님' ||
+        name.trim().toLowerCase() === 'admin') &&
+      pw.trim() === '0526'
+    ) {
+      const adminStudent: Student = {
+        id: 'admin_teacher',
+        name: '선생님 (관리자)',
+        pw: '0526',
+        grade: '5',
+        class: '3',
+        bio: '5학년 3반 담임교사 / 블로그 총괄 관리자',
+        role: 'admin'
+      };
+      setUser(adminStudent);
+      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(adminStudent));
+      return true;
+    }
+
+    // 2. Student Login check
     const student = db.Students.find(
       (s) => s.name.trim() === name.trim() && String(s.pw).trim() === String(pw).trim()
     );
@@ -144,28 +171,56 @@ export default function App() {
     return false;
   };
 
+  const handleLoginAsAdmin = () => {
+    const adminStudent: Student = {
+      id: 'admin_teacher',
+      name: '선생님 (관리자)',
+      pw: '0526',
+      grade: '5',
+      class: '3',
+      bio: '5학년 3반 담임교사 / 블로그 총괄 관리자',
+      role: 'admin'
+    };
+    setUser(adminStudent);
+    localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(adminStudent));
+  };
+
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+    if (view === 'write' || view === 'myPosts') {
+      setView('home');
+    }
   };
 
-  // Add new post
-  const handleAddPost = (content: string, category: string, emoji: string) => {
+  // Add new post (supports students and teacher admin)
+  const handleAddPost = (
+    content: string,
+    category: string,
+    emoji: string,
+    title?: string,
+    blocks?: RichBlock[]
+  ) => {
     if (!user) return;
     const now = new Date();
     const formattedDate = `${now.getFullYear()}. ${now.getMonth() + 1}. ${now.getDate()}. ${
       now.getHours() >= 12 ? '오후' : '오전'
     } ${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, '0')}`;
 
+    const isAdminAuthor = user.role === 'admin' || user.name.includes('선생님') || user.name.includes('관리자');
+
     const newPost: Post = {
       id: Date.now(),
       author: user.name,
+      title: title || undefined,
       content,
       date: formattedDate,
-      category: category || '일상',
+      category: category || (isAdminAuthor ? '공지' : '일상'),
       likes: 0,
       likedBy: [],
-      emoji: emoji || '📝'
+      emoji: emoji || (isAdminAuthor ? '👑' : '📝'),
+      blocks: blocks || [],
+      isAdmin: isAdminAuthor
     };
 
     setDb((prev) => ({
@@ -176,7 +231,20 @@ export default function App() {
     apiCall('Posts', 'add', newPost);
   };
 
-  // Delete post
+  // Publish from BlogEditor
+  const handlePublishFromEditor = (
+    title: string,
+    content: string,
+    category: string,
+    emoji: string,
+    blocks: RichBlock[]
+  ) => {
+    handleAddPost(content, category, emoji, title, blocks);
+    setView('home');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Delete post (Students delete their own, Admin can delete any)
   const handleDeletePost = (postId: number | string) => {
     setDb((prev) => ({
       ...prev,
@@ -217,12 +285,15 @@ export default function App() {
       now.getMinutes()
     ).padStart(2, '0')}`;
 
+    const isAdminAuthor = user.role === 'admin' || user.name.includes('선생님') || user.name.includes('관리자');
+
     const newComment: Comment = {
       id: Date.now(),
       postId,
       author: user.name,
       text,
-      date: formattedTime
+      date: formattedTime,
+      isAdmin: isAdminAuthor
     };
 
     setDb((prev) => ({
@@ -484,28 +555,35 @@ export default function App() {
           }}
           onLogout={handleLogout}
           onSelectTag={handleSelectTag}
+          onNavigate={(v) => setView(v)}
         />
 
         {/* Center Main Section */}
         <main className="flex-1 min-w-0 w-full space-y-6">
           {/* Daily Notice Announcement Banner */}
-          <div className="bg-white p-4 sm:p-5 rounded-[32px] shadow-sm border border-gray-100 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#F7CAC9]/30 flex items-center justify-center text-[#E89E9D] shrink-0">
-                <Megaphone className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">오늘의 학급 알림</p>
-                <p className="text-xs sm:text-sm font-semibold text-gray-700 leading-snug">
-                  {notices.length > 0 ? notices[0].title : '배려와 존중으로 함께 성장하는 5학년 3반!'} ✨
-                </p>
+          {view !== 'write' && (
+            <div className="bg-white p-4 sm:p-5 rounded-[32px] shadow-sm border border-gray-100 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#F7CAC9]/30 flex items-center justify-center text-[#E89E9D] shrink-0">
+                  <Megaphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">오늘의 학급 알림</p>
+                  <p className="text-xs sm:text-sm font-semibold text-gray-700 leading-snug">
+                    {notices.length > 0 ? notices[0].title : '배려와 존중으로 함께 성장하는 5학년 3반!'} ✨
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Login Card for Guests on Home View */}
           {!user && view === 'home' && (
-            <LoginCard students={db.Students} onLogin={handleLogin} />
+            <LoginCard
+              students={db.Students}
+              onLogin={handleLogin}
+              onAdminLogin={handleLoginAsAdmin}
+            />
           )}
 
           {/* Views Router */}
@@ -526,6 +604,18 @@ export default function App() {
               onOpenLogin={() => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
+              onOpenWrite={() => setView('write')}
+            />
+          )}
+
+          {/* Dedicated SmartEditor Write Post View */}
+          {view === 'write' && (
+            <BlogEditor
+              user={user}
+              categories={categories}
+              onPublish={handlePublishFromEditor}
+              onCancel={() => setView('home')}
+              onOpenLogin={() => setView('home')}
             />
           )}
 
@@ -533,21 +623,40 @@ export default function App() {
             <div>
               {user ? (
                 <div className="space-y-6">
-                  <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 flex items-center justify-between">
+                  <div className={`p-6 rounded-[32px] shadow-sm border flex items-center justify-between ${
+                    isUserAdmin ? 'bg-gradient-to-r from-amber-50 to-white border-amber-200/80' : 'bg-white border-gray-100'
+                  }`}>
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-[#F7CAC9]/30 flex items-center justify-center text-xl">
-                        🌸
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl ${
+                        isUserAdmin ? 'bg-amber-100 text-amber-700' : 'bg-[#F7CAC9]/30'
+                      }`}>
+                        {isUserAdmin ? '👑' : '🌸'}
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-gray-800">{user.name} 학생의 기록함</h3>
+                        <h3 className="text-base font-bold text-gray-800">
+                          {isUserAdmin ? '선생님 관리자 기록함' : `${user.name} 학생의 기록함`}
+                        </h3>
                         <p className="text-xs text-gray-400">
-                          내가 작성한 이야기와 생각을 모아보는 공간입니다.
+                          {isUserAdmin
+                            ? '선생님이 학급 블로그에 등록한 공지와 글을 모아보는 공간입니다.'
+                            : '내가 작성한 이야기와 생각을 모아보는 공간입니다.'}
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#F7CAC9]/30 text-[#E89E9D]">
-                      {db.Posts.filter((p) => p.author === user.name).length}개의 글
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setView('write')}
+                        className="px-4 py-2 rounded-2xl text-white font-bold text-xs shadow-xs cursor-pointer"
+                        style={{ backgroundColor: isUserAdmin ? '#92A8D1' : '#F7CAC9' }}
+                      >
+                        {isUserAdmin ? '관리자 새 글 쓰기' : '새 글 쓰기'}
+                      </button>
+                      <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                        isUserAdmin ? 'bg-amber-100 text-amber-800' : 'bg-[#F7CAC9]/30 text-[#E89E9D]'
+                      }`}>
+                        {db.Posts.filter((p) => p.author === user.name).length}개의 글
+                      </span>
+                    </div>
                   </div>
 
                   <BlogList
@@ -563,6 +672,7 @@ export default function App() {
                     onAddComment={handleAddComment}
                     onDeleteComment={handleDeleteComment}
                     onOpenLogin={() => {}}
+                    onOpenWrite={() => setView('write')}
                   />
                 </div>
               ) : (
@@ -572,7 +682,7 @@ export default function App() {
                   </div>
                   <h3 className="font-bold text-gray-800 text-base mb-1">로그인이 필요합니다</h3>
                   <p className="text-xs text-gray-400 mb-5">
-                    나의 기록을 확인하고 글을 쓰려면 학생 이름과 비밀번호로 로그인해주세요.
+                    기록을 확인하고 글을 쓰려면 계정으로 로그인해주세요.
                   </p>
                   <button
                     onClick={() => setView('home')}
@@ -603,6 +713,7 @@ export default function App() {
               notices={notices}
               gallery={gallery}
               gasUrl={gasUrl}
+              user={user}
               onSaveGasUrl={handleSaveGasUrl}
               onAddStudent={handleAddStudent}
               onDeleteStudent={handleDeleteStudent}
@@ -616,6 +727,8 @@ export default function App() {
               onUpdateGalleryItem={handleUpdateGalleryItem}
               onDeleteGalleryItem={handleDeleteGalleryItem}
               onResetData={handleResetData}
+              onLoginAsAdmin={handleLoginAsAdmin}
+              onNavigateToWrite={() => setView('write')}
             />
           )}
         </main>

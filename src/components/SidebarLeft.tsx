@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Calendar, BookOpen, Users, LogIn, LogOut, CheckCircle2, Flame } from 'lucide-react';
+import { Sparkles, Calendar, BookOpen, Users, LogIn, LogOut, CheckCircle2, Flame, Crown, Settings, PenLine } from 'lucide-react';
 import { Student, Post, Database } from '../types';
 
 interface SidebarLeftProps {
@@ -8,17 +8,20 @@ interface SidebarLeftProps {
   onOpenLogin: () => void;
   onLogout: () => void;
   onSelectTag: (tag: string) => void;
+  onNavigate?: (view: 'write' | 'control') => void;
 }
 
-const POPULAR_TAGS = ['#배움기록', '#급식최고', '#체육시간', '#현장체험', '#독서토론', '#미니게임', '#친구응원'];
+const POPULAR_TAGS = ['#학급공지', '#배움기록', '#급식최고', '#체육시간', '#현장체험', '#독서토론', '#미니게임', '#친구응원'];
 
 export const SidebarLeft: React.FC<SidebarLeftProps> = ({
   user,
   db,
   onOpenLogin,
   onLogout,
-  onSelectTag
+  onSelectTag,
+  onNavigate
 }) => {
+  const isAdmin = user?.role === 'admin' || user?.name.includes('선생님') || user?.name.includes('관리자');
   const userPostsCount = user ? db.Posts.filter((p) => p.author === user.name).length : 0;
   const todayPostsCount = db.Posts.length;
   const totalStudents = db.Students.length;
@@ -26,32 +29,64 @@ export const SidebarLeft: React.FC<SidebarLeftProps> = ({
   return (
     <aside className="w-full lg:w-72 flex flex-col gap-6 shrink-0">
       {/* Profile Card */}
-      <div className="bg-white p-6 rounded-[32px] shadow-xs border border-gray-100 relative overflow-hidden group">
+      <div className={`p-6 rounded-[32px] shadow-xs border relative overflow-hidden group ${
+        isAdmin ? 'bg-gradient-to-b from-amber-50/50 to-white border-amber-200/60' : 'bg-white border-gray-100'
+      }`}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-            {user ? '내 프로필' : '학생 프로필'}
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
+            {isAdmin && <Crown className="w-3.5 h-3.5 text-amber-500" />}
+            <span>{isAdmin ? '관리자 프로필' : user ? '내 프로필' : '학생 프로필'}</span>
           </h3>
-          <span className="text-[10px] font-semibold text-[#8C9AA8] bg-[#F7CAC9]/20 px-2 py-0.5 rounded-full">
-            5학년 3반
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+            isAdmin ? 'text-amber-800 bg-amber-100' : 'text-[#8C9AA8] bg-[#F7CAC9]/20'
+          }`}>
+            {isAdmin ? '담임교사' : '5학년 3반'}
           </span>
         </div>
 
         {user ? (
           <div className="flex flex-col items-center text-center">
             {/* Avatar */}
-            <div className="w-20 h-20 rounded-[24px] mb-3 flex items-center justify-center text-white text-2xl font-black shadow-sm bg-gradient-to-br from-[#F7CAC9] to-[#E4B4B2]">
-              {user.name.slice(0, 1)}
+            <div className={`w-20 h-20 rounded-[24px] mb-3 flex items-center justify-center text-white text-2xl font-black shadow-sm ${
+              isAdmin
+                ? 'bg-gradient-to-br from-amber-400 to-amber-600 ring-4 ring-amber-100'
+                : 'bg-gradient-to-br from-[#F7CAC9] to-[#E4B4B2]'
+            }`}>
+              {isAdmin ? '👑' : user.name.slice(0, 1)}
             </div>
-            <p className="font-bold text-lg text-gray-800">{user.name} 학생</p>
-            <p className="text-xs text-gray-400 mb-2">출석 12일째 • 작성글 {userPostsCount}개</p>
-            <p className="text-[11px] text-gray-500 bg-gray-50 px-3 py-1 rounded-xl mb-4 max-w-full truncate border border-gray-100">
-              {user.bio || '배려와 우정의 5-3 프렌즈'}
+            <p className="font-bold text-lg text-gray-800 flex items-center gap-1.5 justify-center">
+              <span>{user.name}</span>
             </p>
+            <p className="text-xs text-gray-400 mb-2">
+              {isAdmin ? '학급 총괄 관리 • ' : '출석 12일째 • '}작성글 {userPostsCount}개
+            </p>
+            <p className="text-[11px] text-gray-600 bg-gray-50/90 px-3 py-1 rounded-xl mb-4 max-w-full truncate border border-gray-100">
+              {user.bio || (isAdmin ? '5학년 3반 담임교사 / 블로그 총괄 관리자' : '배려와 우정의 5-3 프렌즈')}
+            </p>
+
+            {isAdmin && onNavigate && (
+              <div className="w-full grid grid-cols-2 gap-2 mb-3">
+                <button
+                  onClick={() => onNavigate('write')}
+                  className="py-2 rounded-xl text-xs font-bold text-white bg-[#92A8D1] hover:bg-[#8199C5] transition-all flex items-center justify-center gap-1 shadow-2xs cursor-pointer"
+                >
+                  <PenLine className="w-3.5 h-3.5" />
+                  <span>글쓰기</span>
+                </button>
+                <button
+                  onClick={() => onNavigate('control')}
+                  className="py-2 rounded-xl text-xs font-bold text-gray-700 bg-amber-100 hover:bg-amber-200 transition-all flex items-center justify-center gap-1 shadow-2xs cursor-pointer"
+                >
+                  <Settings className="w-3.5 h-3.5 text-amber-700" />
+                  <span>관리 설정</span>
+                </button>
+              </div>
+            )}
 
             <button
               onClick={onLogout}
               className="w-full py-2.5 rounded-xl text-xs font-bold text-white transition-all active:scale-95 cursor-pointer shadow-xs hover:shadow-sm"
-              style={{ backgroundColor: '#92A8D1' }}
+              style={{ backgroundColor: isAdmin ? '#8C9AA8' : '#92A8D1' }}
             >
               로그아웃
             </button>
@@ -68,7 +103,7 @@ export const SidebarLeft: React.FC<SidebarLeftProps> = ({
               className="w-full py-2.5 rounded-xl text-xs font-bold text-white transition-all active:scale-95 cursor-pointer shadow-xs"
               style={{ backgroundColor: '#F7CAC9' }}
             >
-              학생 로그인하기
+              로그인하기
             </button>
           </div>
         )}

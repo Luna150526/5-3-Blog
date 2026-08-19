@@ -25,9 +25,11 @@ import {
   PlusCircle,
   Image as ImageIcon,
   Calendar,
-  Layers
+  Layers,
+  Crown,
+  PenLine
 } from 'lucide-react';
-import { Database, Category, NoticeItem, GalleryItem } from '../types';
+import { Database, Category, NoticeItem, GalleryItem, Student } from '../types';
 
 interface ControlPanelProps {
   db: Database;
@@ -35,6 +37,7 @@ interface ControlPanelProps {
   notices: NoticeItem[];
   gallery: GalleryItem[];
   gasUrl: string;
+  user?: Student | null;
   onSaveGasUrl: (url: string) => void;
   onAddStudent: (data: { name: string; pw: string; grade: string; class: string; bio?: string }) => void;
   onDeleteStudent: (id: number | string) => void;
@@ -48,6 +51,8 @@ interface ControlPanelProps {
   onUpdateGalleryItem: (id: number | string, data: { title: string; emoji?: string; color?: string; imageUrl?: string; description?: string; date?: string }) => void;
   onDeleteGalleryItem: (id: number | string) => void;
   onResetData: () => void;
+  onLoginAsAdmin?: () => void;
+  onNavigateToWrite?: () => void;
 }
 
 const PRESET_COLORS = [
@@ -124,6 +129,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   notices,
   gallery,
   gasUrl,
+  user,
   onSaveGasUrl,
   onAddStudent,
   onDeleteStudent,
@@ -136,7 +142,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onAddGalleryItem,
   onUpdateGalleryItem,
   onDeleteGalleryItem,
-  onResetData
+  onResetData,
+  onLoginAsAdmin,
+  onNavigateToWrite
 }) => {
   const [adminPw, setAdminPw] = useState('');
   const [isAuth, setIsAuth] = useState(false);
@@ -197,6 +205,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     e.preventDefault();
     if (adminPw === '0526') {
       setIsAuth(true);
+      if (onLoginAsAdmin) {
+        onLoginAsAdmin();
+      }
     } else {
       alert('관리자 비밀번호가 올바르지 않습니다.');
     }
@@ -492,6 +503,36 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <BarChart3 className="w-4 h-4" />
           <span>통계 및 초기화</span>
         </button>
+      </div>
+
+      {/* Admin Action Quick Banner */}
+      <div className="bg-gradient-to-r from-amber-50 via-rose-50/50 to-indigo-50/50 p-4 sm:p-5 rounded-[32px] border border-amber-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3.5">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xs shrink-0 font-bold text-lg">
+            👑
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-bold text-gray-800">선생님 관리자 모드 활성화됨</h4>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900">
+                인증완료
+              </span>
+            </div>
+            <p className="text-xs text-gray-500">
+              관리자 계정으로 학급 공지사항 및 블로그 글을 자유롭게 작성할 수 있습니다.
+            </p>
+          </div>
+        </div>
+
+        {onNavigateToWrite && (
+          <button
+            onClick={onNavigateToWrite}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-2xl text-white font-bold text-xs shadow-sm hover:shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer bg-[#92A8D1] hover:bg-[#8199C5] shrink-0"
+          >
+            <PenLine className="w-4 h-4" />
+            <span>관리자 계정으로 새 글 작성하기</span>
+          </button>
+        )}
       </div>
 
       {/* 1. Category Management Tab */}
