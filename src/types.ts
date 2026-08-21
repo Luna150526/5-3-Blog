@@ -90,4 +90,4 @@ export interface Database {
   Settings: Record<string, any>[];
 }
 
-export type ViewType = 'home' | 'write' | 'myPosts' | 'control' | 'students';
+export type ViewType = 'home' | 'write' | 'myPosts' | 'control' | 'students' | 'gas';

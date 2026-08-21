@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, LogOut, LogIn, PenLine, Crown, ShieldCheck } from 'lucide-react';
+import { RefreshCw, LogOut, LogIn, PenLine, Crown, ShieldCheck, Link2 } from 'lucide-react';
 import { Student, ViewType } from '../types';
 
 interface NavbarProps {
@@ -51,11 +51,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Nav Tabs */}
-      <nav className="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm font-semibold text-gray-500">
+      <nav className="flex items-center gap-2 sm:gap-5 text-xs sm:text-sm font-semibold text-gray-500 overflow-x-auto scrollbar-none py-1">
         <button
           id="tab-home-btn"
           onClick={() => setView('home')}
-          className={`pb-1.5 transition-colors cursor-pointer ${
+          className={`pb-1.5 transition-colors cursor-pointer shrink-0 ${
             view === 'home'
               ? 'text-[#F7CAC9] border-b-2 border-[#F7CAC9] font-bold'
               : 'border-b-2 border-transparent hover:text-[#92A8D1]'
@@ -74,7 +74,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               setView('write');
             }
           }}
-          className={`pb-1.5 transition-colors cursor-pointer flex items-center gap-1 ${
+          className={`pb-1.5 transition-colors cursor-pointer flex items-center gap-1 shrink-0 ${
             view === 'write'
               ? 'text-[#E89E9D] border-b-2 border-[#F7CAC9] font-bold'
               : 'border-b-2 border-transparent hover:text-[#E89E9D]'
@@ -87,7 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           id="tab-myposts-btn"
           onClick={() => setView('myPosts')}
-          className={`pb-1.5 transition-colors cursor-pointer ${
+          className={`pb-1.5 transition-colors cursor-pointer shrink-0 ${
             view === 'myPosts'
               ? 'text-[#F7CAC9] border-b-2 border-[#F7CAC9] font-bold'
               : 'border-b-2 border-transparent hover:text-[#92A8D1]'
@@ -99,7 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           id="tab-students-btn"
           onClick={() => setView('students')}
-          className={`pb-1.5 transition-colors cursor-pointer ${
+          className={`pb-1.5 transition-colors cursor-pointer shrink-0 ${
             view === 'students'
               ? 'text-[#92A8D1] border-b-2 border-[#92A8D1] font-bold'
               : 'border-b-2 border-transparent hover:text-[#92A8D1]'
@@ -111,7 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           id="tab-control-btn"
           onClick={() => setView('control')}
-          className={`pb-1.5 transition-colors cursor-pointer flex items-center gap-1 ${
+          className={`pb-1.5 transition-colors cursor-pointer flex items-center gap-1 shrink-0 ${
             view === 'control'
               ? 'text-[#92A8D1] border-b-2 border-[#92A8D1] font-bold'
               : 'border-b-2 border-transparent hover:text-[#92A8D1]'

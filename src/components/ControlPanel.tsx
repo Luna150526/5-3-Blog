@@ -44,6 +44,7 @@ interface ControlPanelProps {
   gallery: GalleryItem[];
   gasUrl: string;
   user?: Student | null;
+  initialTab?: AdminTab;
   onSaveGasUrl: (url: string) => void;
   onAddStudent: (data: { name: string; pw: string; grade: string; class: string; bio?: string }) => void;
   onDeleteStudent: (id: number | string) => void;
@@ -285,6 +286,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   gallery,
   gasUrl,
   user,
+  initialTab,
   onSaveGasUrl,
   onAddStudent,
   onDeleteStudent,
@@ -302,9 +304,25 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onNavigateToWrite,
   onFetchFromGas
 }) => {
+  const isTeacher = user?.role === 'admin' || user?.name?.includes('선생님') || user?.name?.includes('관리자');
   const [adminPw, setAdminPw] = useState('');
-  const [isAuth, setIsAuth] = useState(false);
-  const [activeTab, setActiveTab] = useState<AdminTab>('categories');
+  const [isAuth, setIsAuth] = useState(isTeacher || false);
+  const [activeTab, setActiveTab] = useState<AdminTab>(initialTab || 'categories');
+
+  // Sync initialTab if prop changes
+  React.useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+      // If navigating directly to a tab like gas, unlock auth for seamless access
+      setIsAuth(true);
+    }
+  }, [initialTab]);
+
+  React.useEffect(() => {
+    if (isTeacher) {
+      setIsAuth(true);
+    }
+  }, [isTeacher]);
 
   // GAS State
   const [urlInput, setUrlInput] = useState(gasUrl);
@@ -652,7 +670,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   // Password Lock Screen if not authenticated
   if (!isAuth) {
     return (
-      <div className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100 max-w-md mx-auto my-8">
+      <div className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100 max-w-md mx-auto my-8 animate-in fade-in duration-200">
         <div className="text-center mb-6">
           <div className="w-14 h-14 rounded-full bg-[#92A8D1]/20 flex items-center justify-center mx-auto mb-3 text-[#6B84B5]">
             <Key className="w-7 h-7" />
@@ -688,10 +706,30 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </button>
         </form>
 
-        <div className="mt-6 pt-4 border-t border-gray-100 text-center">
-          <p className="text-[11px] text-gray-400">
-            담임선생님 기본 마스터 비밀번호는 <code className="bg-gray-100 px-1.5 py-0.5 rounded-sm font-bold text-gray-600">0526</code> 입니다.
-          </p>
+        <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setIsAuth(true);
+              if (onLoginAsAdmin) onLoginAsAdmin();
+            }}
+            className="w-full py-2.5 px-3 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-amber-200"
+          >
+            <Crown className="w-3.5 h-3.5 text-amber-600" />
+            <span>선생님 기본 마스터키 (0526)로 즉시 잠금해제</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsAuth(true);
+              setActiveTab('gas');
+            }}
+            className="w-full py-2.5 px-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-emerald-200"
+          >
+            <Link2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>📊 구글 시트 연동 및 진단 탭 바로 열기</span>
+          </button>
         </div>
       </div>
     );
@@ -718,23 +756,50 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
         </div>
 
-        {onNavigateToWrite && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={onNavigateToWrite}
-            className="px-4 py-2.5 rounded-2xl text-white font-bold text-xs shadow-sm hover:shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
-            style={{ backgroundColor: '#92A8D1' }}
+            onClick={() => setActiveTab('gas')}
+            className={`px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+              gasUrl
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+            }`}
           >
-            <PenLine className="w-4 h-4" />
-            <span>선생님 글/공지 작성하기</span>
+            <span className={`w-2 h-2 rounded-full ${gasUrl ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            <span>{gasUrl ? '구글시트 연동중' : '구글시트 설정'}</span>
           </button>
-        )}
+
+          {onNavigateToWrite && (
+            <button
+              onClick={onNavigateToWrite}
+              className="px-4 py-2.5 rounded-2xl text-white font-bold text-xs shadow-sm hover:shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+              style={{ backgroundColor: '#92A8D1' }}
+            >
+              <PenLine className="w-4 h-4" />
+              <span>선생님 글/공지 작성</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Navigation Sub-Tabs */}
       <div className="bg-white p-2 rounded-2xl border border-gray-100 shadow-xs flex items-center gap-1.5 overflow-x-auto scrollbar-none">
         <button
+          onClick={() => setActiveTab('gas')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ring-2 ring-emerald-400/30 ${
+            activeTab === 'gas'
+              ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500'
+              : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+          }`}
+        >
+          <Link2 className="w-3.5 h-3.5" />
+          <span>구글 시트 연동 및 진단 (GAS)</span>
+          <span className={`w-1.5 h-1.5 rounded-full ${gasUrl ? 'bg-emerald-300' : 'bg-amber-300'}`} />
+        </button>
+
+        <button
           onClick={() => setActiveTab('categories')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'categories' ? 'bg-[#F7CAC9] text-white shadow-xs' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
@@ -744,7 +809,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
         <button
           onClick={() => setActiveTab('notices')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'notices' ? 'bg-[#92A8D1] text-white shadow-xs' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
@@ -754,7 +819,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
         <button
           onClick={() => setActiveTab('gallery')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'gallery' ? 'bg-[#FCE1B5] text-amber-900 shadow-xs' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
@@ -764,7 +829,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
         <button
           onClick={() => setActiveTab('students')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'students' ? 'bg-gray-800 text-white shadow-xs' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
@@ -773,18 +838,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('gas')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-            activeTab === 'gas' ? 'bg-emerald-600 text-white shadow-xs' : 'text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          <Link2 className="w-3.5 h-3.5" />
-          <span>구글 시트 연동 및 진단</span>
-        </button>
-
-        <button
           onClick={() => setActiveTab('stats')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'stats' ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >

@@ -1,14 +1,15 @@
 import React from 'react';
-import { Sparkles, Calendar, BookOpen, Users, LogIn, LogOut, CheckCircle2, Flame, Crown, Settings, PenLine } from 'lucide-react';
-import { Student, Post, Database } from '../types';
+import { Sparkles, Calendar, BookOpen, Users, LogIn, LogOut, CheckCircle2, Flame, Crown, Settings, PenLine, Link2 } from 'lucide-react';
+import { Student, Post, Database, ViewType } from '../types';
 
 interface SidebarLeftProps {
   user: Student | null;
   db: Database;
+  hasGasUrl?: boolean;
   onOpenLogin: () => void;
   onLogout: () => void;
   onSelectTag: (tag: string) => void;
-  onNavigate?: (view: 'write' | 'control') => void;
+  onNavigate?: (view: ViewType) => void;
 }
 
 const POPULAR_TAGS = ['#학급공지', '#배움기록', '#급식최고', '#체육시간', '#현장체험', '#독서토론', '#미니게임', '#친구응원'];
@@ -16,6 +17,7 @@ const POPULAR_TAGS = ['#학급공지', '#배움기록', '#급식최고', '#체�
 export const SidebarLeft: React.FC<SidebarLeftProps> = ({
   user,
   db,
+  hasGasUrl,
   onOpenLogin,
   onLogout,
   onSelectTag,
@@ -108,6 +110,36 @@ export const SidebarLeft: React.FC<SidebarLeftProps> = ({
           </div>
         )}
       </div>
+
+      {/* Google Sheets Integration Quick Status & Link Box */}
+      {onNavigate && (
+        <div className="bg-gradient-to-br from-emerald-50/70 to-teal-50/40 p-5 rounded-[32px] shadow-xs border border-emerald-200/80 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-xs shadow-xs">
+                <Link2 className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-emerald-950">구글 시트 연동</h4>
+                <p className="text-[10px] text-emerald-700 font-medium">실시간 DB 동기화</p>
+              </div>
+            </div>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              hasGasUrl ? 'bg-emerald-200 text-emerald-900' : 'bg-amber-100 text-amber-800'
+            }`}>
+              {hasGasUrl ? '연동됨' : '미연동'}
+            </span>
+          </div>
+
+          <button
+            onClick={() => onNavigate('control')}
+            className="w-full py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <Link2 className="w-3.5 h-3.5" />
+            <span>관리 설정에서 구글 시트 설정 열기</span>
+          </button>
+        </div>
+      )}
 
       {/* Real-time Statistics Card */}
       <div className="bg-white p-6 rounded-[32px] shadow-xs border border-gray-100">

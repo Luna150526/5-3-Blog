@@ -564,6 +564,7 @@ export default function App() {
         <SidebarLeft
           user={user}
           db={db}
+          hasGasUrl={!!gasUrl}
           onOpenLogin={() => {
             setView('home');
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -721,7 +722,7 @@ export default function App() {
             />
           )}
 
-          {view === 'control' && (
+          {(view === 'control' || view === 'gas') && (
             <ControlPanel
               db={db}
               categories={categories}
@@ -729,6 +730,7 @@ export default function App() {
               gallery={gallery}
               gasUrl={gasUrl}
               user={user}
+              initialTab={view === 'gas' ? 'gas' : 'categories'}
               onSaveGasUrl={handleSaveGasUrl}
               onAddStudent={handleAddStudent}
               onDeleteStudent={handleDeleteStudent}
