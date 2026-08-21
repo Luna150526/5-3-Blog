@@ -782,26 +782,47 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs (All visible at once in a responsive grid) */}
-      <div className="bg-white p-2.5 sm:p-3 rounded-2xl sm:rounded-3xl border border-gray-150 shadow-xs">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          {/* Tab 1: GAS */}
+      {/* Navigation Sub-Tabs (Clean 2x3 Grid - All 6 tabs clearly visible at once) */}
+      <div className="bg-white p-3 sm:p-4 rounded-[28px] border border-gray-150 shadow-xs">
+        <div className="flex items-center justify-between mb-2.5 px-1">
+          <span className="text-[11px] font-bold text-gray-400 tracking-wider uppercase">
+            관리 메뉴 바로가기
+          </span>
+          <span className="text-[11px] font-semibold text-gray-400">
+            총 6개 관리 항목
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3">
+          {/* Tab 1: 구글 시트 (GAS) */}
           <button
+            type="button"
             onClick={() => setActiveTab('gas')}
-            className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-xs font-bold transition-all cursor-pointer flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-1.5 border text-center sm:text-left ${
+            className={`p-3 sm:p-3.5 rounded-2xl text-left transition-all cursor-pointer flex items-center justify-between gap-2 border ${
               activeTab === 'gas'
-                ? 'bg-emerald-600 text-white shadow-sm border-emerald-700 ring-2 ring-emerald-400/50'
-                : 'bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-900 border-emerald-200/80'
+                ? 'bg-emerald-600 text-white shadow-md border-emerald-700 ring-2 ring-emerald-400/40'
+                : 'bg-emerald-50/50 hover:bg-emerald-100/60 text-emerald-950 border-emerald-200/70'
             }`}
           >
-            <div className="flex items-center gap-1.5">
-              <Link2 className={`w-4 h-4 shrink-0 ${activeTab === 'gas' ? 'text-white' : 'text-emerald-600'}`} />
-              <span className="truncate">구글 시트 (GAS)</span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                  activeTab === 'gas' ? 'bg-white/20 text-white' : 'bg-emerald-500 text-white'
+                }`}
+              >
+                <Link2 className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold truncate">구글 시트 연동</div>
+                <div className={`text-[10px] truncate ${activeTab === 'gas' ? 'text-emerald-100' : 'text-emerald-700'}`}>
+                  실시간 GAS 동기화
+                </div>
+              </div>
             </div>
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0 ${
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                 activeTab === 'gas'
-                  ? 'bg-white/20 text-white'
+                  ? 'bg-white/25 text-white'
                   : gasUrl
                   ? 'bg-emerald-200 text-emerald-900'
                   : 'bg-amber-100 text-amber-800'
@@ -811,109 +832,169 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             </span>
           </button>
 
-          {/* Tab 2: Categories */}
+          {/* Tab 2: 카테고리 관리 */}
           <button
+            type="button"
             onClick={() => setActiveTab('categories')}
-            className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-xs font-bold transition-all cursor-pointer flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-1.5 border text-center sm:text-left ${
+            className={`p-3 sm:p-3.5 rounded-2xl text-left transition-all cursor-pointer flex items-center justify-between gap-2 border ${
               activeTab === 'categories'
-                ? 'bg-[#F7CAC9] text-gray-900 shadow-sm border-[#e8b5b4] ring-2 ring-[#F7CAC9]/60'
-                : 'bg-gray-50/90 hover:bg-rose-50/70 text-gray-700 border-gray-200/70'
+                ? 'bg-[#F7CAC9] text-gray-900 shadow-md border-[#e8b5b4] ring-2 ring-[#F7CAC9]/60'
+                : 'bg-gray-50/90 hover:bg-rose-50/70 text-gray-800 border-gray-200/80'
             }`}
           >
-            <div className="flex items-center gap-1.5">
-              <FolderOpen className={`w-4 h-4 shrink-0 ${activeTab === 'categories' ? 'text-gray-900' : 'text-rose-400'}`} />
-              <span className="truncate">카테고리</span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                  activeTab === 'categories' ? 'bg-white/40 text-gray-900' : 'bg-rose-400 text-white'
+                }`}
+              >
+                <FolderOpen className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold truncate">카테고리 관리</div>
+                <div className={`text-[10px] truncate ${activeTab === 'categories' ? 'text-gray-700' : 'text-gray-400'}`}>
+                  주제 & 색상 태그
+                </div>
+              </div>
             </div>
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0 ${
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                 activeTab === 'categories' ? 'bg-black/10 text-gray-900' : 'bg-gray-200 text-gray-700'
               }`}
             >
-              {categories.length}
+              {categories.length}개
             </span>
           </button>
 
-          {/* Tab 3: Notices */}
+          {/* Tab 3: 학급 공지사항 */}
           <button
+            type="button"
             onClick={() => setActiveTab('notices')}
-            className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-xs font-bold transition-all cursor-pointer flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-1.5 border text-center sm:text-left ${
+            className={`p-3 sm:p-3.5 rounded-2xl text-left transition-all cursor-pointer flex items-center justify-between gap-2 border ${
               activeTab === 'notices'
-                ? 'bg-[#92A8D1] text-white shadow-sm border-[#7d97c4] ring-2 ring-[#92A8D1]/60'
-                : 'bg-gray-50/90 hover:bg-sky-50/70 text-gray-700 border-gray-200/70'
+                ? 'bg-[#92A8D1] text-white shadow-md border-[#7d97c4] ring-2 ring-[#92A8D1]/60'
+                : 'bg-gray-50/90 hover:bg-sky-50/70 text-gray-800 border-gray-200/80'
             }`}
           >
-            <div className="flex items-center gap-1.5">
-              <Megaphone className={`w-4 h-4 shrink-0 ${activeTab === 'notices' ? 'text-white' : 'text-sky-500'}`} />
-              <span className="truncate">공지사항</span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                  activeTab === 'notices' ? 'bg-white/20 text-white' : 'bg-[#92A8D1] text-white'
+                }`}
+              >
+                <Megaphone className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold truncate">공지사항 관리</div>
+                <div className={`text-[10px] truncate ${activeTab === 'notices' ? 'text-sky-100' : 'text-gray-400'}`}>
+                  선생님 알림 등록
+                </div>
+              </div>
             </div>
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0 ${
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                 activeTab === 'notices' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'
               }`}
             >
-              {notices.length}
+              {notices.length}건
             </span>
           </button>
 
-          {/* Tab 4: Gallery */}
+          {/* Tab 4: 학급 갤러리 */}
           <button
+            type="button"
             onClick={() => setActiveTab('gallery')}
-            className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-xs font-bold transition-all cursor-pointer flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-1.5 border text-center sm:text-left ${
+            className={`p-3 sm:p-3.5 rounded-2xl text-left transition-all cursor-pointer flex items-center justify-between gap-2 border ${
               activeTab === 'gallery'
-                ? 'bg-[#FCE1B5] text-amber-950 shadow-sm border-[#edd09f] ring-2 ring-[#FCE1B5]/60'
-                : 'bg-gray-50/90 hover:bg-amber-50/70 text-gray-700 border-gray-200/70'
+                ? 'bg-[#FCE1B5] text-amber-950 shadow-md border-[#edd09f] ring-2 ring-[#FCE1B5]/60'
+                : 'bg-gray-50/90 hover:bg-amber-50/70 text-gray-800 border-gray-200/80'
             }`}
           >
-            <div className="flex items-center gap-1.5">
-              <ImageIcon className={`w-4 h-4 shrink-0 ${activeTab === 'gallery' ? 'text-amber-950' : 'text-amber-500'}`} />
-              <span className="truncate">갤러리</span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                  activeTab === 'gallery' ? 'bg-black/10 text-amber-950' : 'bg-amber-400 text-white'
+                }`}
+              >
+                <ImageIcon className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold truncate">학급 갤러리</div>
+                <div className={`text-[10px] truncate ${activeTab === 'gallery' ? 'text-amber-900' : 'text-gray-400'}`}>
+                  추억 사진 & 앨범
+                </div>
+              </div>
             </div>
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0 ${
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                 activeTab === 'gallery' ? 'bg-black/10 text-amber-950' : 'bg-gray-200 text-gray-700'
               }`}
             >
-              {gallery.length}
+              {gallery.length}장
             </span>
           </button>
 
-          {/* Tab 5: Students */}
+          {/* Tab 5: 학생 계정 관리 */}
           <button
+            type="button"
             onClick={() => setActiveTab('students')}
-            className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-xs font-bold transition-all cursor-pointer flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-1.5 border text-center sm:text-left ${
+            className={`p-3 sm:p-3.5 rounded-2xl text-left transition-all cursor-pointer flex items-center justify-between gap-2 border ${
               activeTab === 'students'
-                ? 'bg-gray-800 text-white shadow-sm border-gray-900 ring-2 ring-gray-600/60'
-                : 'bg-gray-50/90 hover:bg-gray-100 text-gray-700 border-gray-200/70'
+                ? 'bg-gray-800 text-white shadow-md border-gray-900 ring-2 ring-gray-600/60'
+                : 'bg-gray-50/90 hover:bg-gray-100 text-gray-800 border-gray-200/80'
             }`}
           >
-            <div className="flex items-center gap-1.5">
-              <UserPlus className={`w-4 h-4 shrink-0 ${activeTab === 'students' ? 'text-white' : 'text-gray-600'}`} />
-              <span className="truncate">학생 계정</span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                  activeTab === 'students' ? 'bg-white/20 text-white' : 'bg-gray-700 text-white'
+                }`}
+              >
+                <UserPlus className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold truncate">학생 계정 관리</div>
+                <div className={`text-[10px] truncate ${activeTab === 'students' ? 'text-gray-300' : 'text-gray-400'}`}>
+                  명단 & 번호/비번
+                </div>
+              </div>
             </div>
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0 ${
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                 activeTab === 'students' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'
               }`}
             >
-              {db.Students.length}
+              {db.Students.length}명
             </span>
           </button>
 
-          {/* Tab 6: Stats */}
+          {/* Tab 6: 통계 및 초기화 */}
           <button
+            type="button"
             onClick={() => setActiveTab('stats')}
-            className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-xs font-bold transition-all cursor-pointer flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-1.5 border text-center sm:text-left ${
+            className={`p-3 sm:p-3.5 rounded-2xl text-left transition-all cursor-pointer flex items-center justify-between gap-2 border ${
               activeTab === 'stats'
-                ? 'bg-indigo-600 text-white shadow-sm border-indigo-700 ring-2 ring-indigo-400/50'
-                : 'bg-gray-50/90 hover:bg-indigo-50/70 text-gray-700 border-gray-200/70'
+                ? 'bg-indigo-600 text-white shadow-md border-indigo-700 ring-2 ring-indigo-400/40'
+                : 'bg-gray-50/90 hover:bg-indigo-50/70 text-gray-800 border-gray-200/80'
             }`}
           >
-            <div className="flex items-center gap-1.5">
-              <BarChart3 className={`w-4 h-4 shrink-0 ${activeTab === 'stats' ? 'text-white' : 'text-indigo-500'}`} />
-              <span className="truncate">통계 및 초기화</span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                  activeTab === 'stats' ? 'bg-white/20 text-white' : 'bg-indigo-500 text-white'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold truncate">통계 및 초기화</div>
+                <div className={`text-[10px] truncate ${activeTab === 'stats' ? 'text-indigo-100' : 'text-gray-400'}`}>
+                  활동 집계 & 백업
+                </div>
+              </div>
             </div>
             <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0 ${
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                 activeTab === 'stats' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700'
               }`}
             >
