@@ -90,9 +90,17 @@ export default function App() {
       if (response.ok) {
         const data = await response.json();
         if (data && (data.Students || data.Posts)) {
+          const parsedPosts = Array.isArray(data.Posts)
+            ? data.Posts.map((p: any) => ({
+                ...p,
+                likedBy: typeof p.likedBy === 'string' ? (() => { try { return JSON.parse(p.likedBy); } catch { return []; } })() : (Array.isArray(p.likedBy) ? p.likedBy : []),
+                blocks: typeof p.blocks === 'string' ? (() => { try { return JSON.parse(p.blocks); } catch { return []; } })() : (Array.isArray(p.blocks) ? p.blocks : [])
+              }))
+            : [];
+
           setDb((prev) => ({
             Students: Array.isArray(data.Students) && data.Students.length > 0 ? data.Students : prev.Students,
-            Posts: Array.isArray(data.Posts) && data.Posts.length > 0 ? data.Posts : prev.Posts,
+            Posts: parsedPosts.length > 0 ? parsedPosts : prev.Posts,
             Comments: Array.isArray(data.Comments) ? data.Comments : prev.Comments,
             Categories: Array.isArray(data.Categories) && data.Categories.length > 0 ? data.Categories : prev.Categories,
             Notices: Array.isArray(data.Notices) && data.Notices.length > 0 ? data.Notices : prev.Notices,
@@ -277,8 +285,13 @@ export default function App() {
     });
   };
 
-  // Add Comment
-  const handleAddComment = (postId: number | string, text: string) => {
+  // Add Comment (with nested reply support)
+  const handleAddComment = (
+    postId: number | string,
+    text: string,
+    parentId?: number | string | null,
+    replyToAuthor?: string
+  ) => {
     if (!user) return;
     const now = new Date();
     const formattedTime = `${now.getHours() >= 12 ? '오후' : '오전'} ${now.getHours() % 12 || 12}:${String(
@@ -293,7 +306,9 @@ export default function App() {
       author: user.name,
       text,
       date: formattedTime,
-      isAdmin: isAdminAuthor
+      isAdmin: isAdminAuthor,
+      parentId: parentId || null,
+      replyToAuthor: replyToAuthor || undefined
     };
 
     setDb((prev) => ({
@@ -729,6 +744,7 @@ export default function App() {
               onResetData={handleResetData}
               onLoginAsAdmin={handleLoginAsAdmin}
               onNavigateToWrite={() => setView('write')}
+              onFetchFromGas={fetchData}
             />
           )}
         </main>

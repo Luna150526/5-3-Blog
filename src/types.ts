@@ -76,6 +76,8 @@ export interface Comment {
   text: string;
   date?: string;
   isAdmin?: boolean;
+  parentId?: number | string | null;
+  replyToAuthor?: string;
 }
 
 export interface Database {

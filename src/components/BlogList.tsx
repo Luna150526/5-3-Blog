@@ -12,7 +12,11 @@ import {
   Calendar,
   Vote,
   Link2,
-  Code2
+  Code2,
+  CornerDownRight,
+  Reply,
+  X,
+  Crown
 } from 'lucide-react';
 import { Post, Comment, Student, Category, RichBlock } from '../types';
 
@@ -27,7 +31,7 @@ interface BlogListProps {
   onAddPost: (content: string, category: string, emoji: string, title?: string, blocks?: RichBlock[]) => void;
   onDeletePost: (postId: number | string) => void;
   onToggleLike: (postId: number | string) => void;
-  onAddComment: (postId: number | string, text: string) => void;
+  onAddComment: (postId: number | string, text: string, parentId?: number | string, replyToAuthor?: string) => void;
   onDeleteComment: (commentId: number | string) => void;
   onOpenLogin: () => void;
   onOpenWrite?: () => void;
@@ -60,6 +64,8 @@ export const BlogList: React.FC<BlogListProps> = ({
   const activeCategories = categories.length > 0 ? categories : DEFAULT_CATEGORY_ITEMS;
 
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
+  const [activeReplyId, setActiveReplyId] = useState<string | null>(null); // commentId
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
 
@@ -81,6 +87,16 @@ export const BlogList: React.FC<BlogListProps> = ({
     setExpandedComments((prev) => ({ ...prev, [String(postId)]: true }));
   };
 
+  const handleReplySubmit = (postId: number | string, parentComment: Comment, e: React.FormEvent) => {
+    e.preventDefault();
+    const text = replyInputs[String(parentComment.id)];
+    if (!text || !text.trim()) return;
+    onAddComment(postId, text.trim(), parentComment.id, parentComment.author);
+    setReplyInputs((prev) => ({ ...prev, [String(parentComment.id)]: '' }));
+    setActiveReplyId(null);
+    setExpandedComments((prev) => ({ ...prev, [String(postId)]: true }));
+  };
+
   const toggleComments = (postId: number | string) => {
     setExpandedComments((prev) => ({
       ...prev,
@@ -93,36 +109,58 @@ export const BlogList: React.FC<BlogListProps> = ({
     return activeCategories.find((c) => c.name === catName);
   };
 
+  const isHtmlContent = (str: string) => /<[a-z][\s\S]*>/i.test(str);
+
+  const renderFormattedContent = (content: string) => {
+    if (!content) return null;
+    if (isHtmlContent(content)) {
+      return (
+        <div 
+          className="text-sm text-gray-700 leading-relaxed mb-4 space-y-2 prose-sm max-w-none break-words"
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
+      );
+    }
+    return (
+      <p className="text-sm text-gray-700 leading-relaxed mb-4 whitespace-pre-wrap break-words">
+        {content}
+      </p>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Active Filter Indicator if any */}
       {(filterUser || filterTag) && (
         <div className="bg-white px-5 py-3 rounded-2xl border border-[#92A8D1]/40 flex items-center justify-between shadow-xs">
-          <span className="text-xs font-semibold text-gray-700">
-            🔎 {filterUser && <span>작성자: <strong>{filterUser}</strong> 학생 </span>}
-            {filterTag && <span>태그: <strong>#{filterTag}</strong> </span>}
-            모아보기
-          </span>
-          <button
-            onClick={onClearFilter}
-            className="text-xs text-[#E89E9D] font-bold hover:underline cursor-pointer"
-          >
-            필터 해제 ✕
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-[#6B84B5]">
+              {filterUser ? `👤 ${filterUser} 학생의 글` : `🏷️ #${filterTag} 태그 검색`}
+            </span>
+            <span className="text-xs text-gray-400">({filteredPosts.length}개의 글)</span>
+          </div>
+          {onClearFilter && (
+            <button
+              onClick={onClearFilter}
+              className="text-xs text-gray-500 hover:text-gray-800 font-semibold cursor-pointer underline"
+            >
+              전체 글 보기
+            </button>
+          )}
         </div>
       )}
 
-      {/* Category Pills Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+      {/* Category Filter Pills Bar */}
+      <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex items-center gap-2 overflow-x-auto scrollbar-none">
         <button
           onClick={() => setSelectedCategoryFilter('all')}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
             selectedCategoryFilter === 'all'
-              ? 'bg-[#92A8D1] text-white shadow-xs'
-              : 'bg-white text-gray-500 hover:bg-[#92A8D1]/10 border border-gray-100'
+              ? 'bg-gray-800 text-white shadow-xs'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
           }`}
         >
-          🌟 전체 ({posts.length})
+          ✨ 전체보기 ({posts.length})
         </button>
         {activeCategories.map((cat) => {
           const count = posts.filter((p) => p.category === cat.name).length;
@@ -131,118 +169,119 @@ export const BlogList: React.FC<BlogListProps> = ({
             <button
               key={cat.id}
               onClick={() => setSelectedCategoryFilter(cat.name)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1 ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
                 isSelected
                   ? 'text-white shadow-xs'
-                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-100'
+                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-100'
               }`}
               style={{
-                backgroundColor: isSelected ? (cat.color || '#F7CAC9') : undefined
+                backgroundColor: isSelected ? cat.color || '#F7CAC9' : undefined
               }}
             >
               <span>{cat.emoji || '🌱'}</span>
               <span>{cat.name}</span>
-              <span className="opacity-80 text-[11px]">({count})</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-black/20 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                {count}
+              </span>
             </button>
           );
         })}
       </div>
 
-      {/* Write Post Prompt Card */}
-      <div className="bg-white p-5 rounded-[32px] shadow-sm border-2 border-dashed border-[#F7CAC9] shrink-0 transition-all hover:border-[#F7CAC9] group">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5 text-left w-full sm:w-auto">
-            <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-xs shrink-0 group-hover:scale-105 transition-transform"
-              style={{ background: 'linear-gradient(135deg, #F7CAC9, #92A8D1)' }}
-            >
-              ✏️
+      {/* Quick Write Trigger Card for students/teachers */}
+      {user && onOpenWrite && (
+        <div className="bg-white p-4 sm:p-5 rounded-[32px] shadow-sm border border-gray-100 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-sm shadow-xs ${
+              user.role === 'admin' ? 'bg-amber-100 text-amber-800' : 'bg-[#F7CAC9]/30 text-[#E89E9D]'
+            }`}>
+              {user.role === 'admin' ? '👑' : user.name.slice(0, 1)}
             </div>
             <div>
-              <h4 className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
-                <span>오늘은 어떤 일이 있었나요?</span>
-                <span className="text-xs font-normal text-gray-400">
-                  {user ? `(작성자: ${user.name} 학생)` : ''}
-                </span>
-              </h4>
-              <p className="text-xs text-gray-400">
-                사진, 스티커, 인용구, 투표 등을 넣어 나만의 멋진 블로그 글을 써보세요!
+              <p className="text-xs font-bold text-gray-700">
+                {user.role === 'admin' ? '선생님 관리자님, 새로운 공지나 학급 이야기를 나눠보세요!' : `${user.name} 학생, 오늘 있었던 특별한 일을 블로그에 기록해보세요!`}
+              </p>
+              <p className="text-[11px] text-gray-400">
+                스마트에디터로 사진, 스티커, 투표, 수식, 글자 색상/강조를 추가할 수 있어요.
               </p>
             </div>
           </div>
-
-          <div className="w-full sm:w-auto flex justify-end">
-            <button
-              id="feed-open-write-btn"
-              onClick={() => {
-                if (!user) {
-                  onOpenLogin();
-                } else if (onOpenWrite) {
-                  onOpenWrite();
-                }
-              }}
-              className="w-full sm:w-auto px-6 py-3 rounded-2xl text-white font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
-              style={{ backgroundColor: '#F7CAC9' }}
-            >
-              <PenLine className="w-4 h-4" />
-              <span>스마트에디터로 글쓰기</span>
-            </button>
-          </div>
+          <button
+            onClick={onOpenWrite}
+            className="px-4 py-2.5 rounded-2xl text-white font-bold text-xs shadow-sm hover:shadow-md transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shrink-0"
+            style={{ backgroundColor: user.role === 'admin' ? '#92A8D1' : '#F7CAC9' }}
+          >
+            <PenLine className="w-3.5 h-3.5" />
+            <span>새 글 쓰기</span>
+          </button>
         </div>
-      </div>
+      )}
 
-      {/* Posts Feed */}
-      <div className="flex flex-col gap-4">
+      {/* Post List Stream */}
+      <div className="space-y-6">
         {filteredPosts.length === 0 ? (
-          <div className="bg-white p-12 rounded-[32px] shadow-sm border border-gray-100 text-center">
-            <p className="text-3xl mb-2">🍃</p>
-            <p className="text-sm font-bold text-gray-700 mb-1">등록된 게시글이 없습니다</p>
-            <p className="text-xs text-gray-400 mb-4">5학년 3반의 첫 번째 멋진 이야기를 작성해보세요!</p>
-            <button
-              onClick={() => {
-                if (!user) onOpenLogin();
-                else if (onOpenWrite) onOpenWrite();
-              }}
-              className="px-5 py-2.5 rounded-2xl text-white text-xs font-bold shadow-xs cursor-pointer inline-flex items-center gap-1.5"
-              style={{ backgroundColor: '#92A8D1' }}
-            >
-              <PenLine className="w-3.5 h-3.5" />
-              <span>새 글 쓰기</span>
-            </button>
+          <div className="bg-white rounded-[32px] p-12 text-center border border-gray-100 shadow-sm">
+            <div className="w-16 h-16 rounded-full bg-rose-50 flex items-center justify-center mx-auto text-2xl mb-3">
+              📝
+            </div>
+            <h3 className="font-bold text-gray-800 text-base mb-1">작성된 게시글이 없습니다</h3>
+            <p className="text-xs text-gray-400 mb-6">
+              {filterUser
+                ? `${filterUser} 학생이 아직 작성한 글이 없습니다.`
+                : '오늘 우리 반에서 있었던 이야기나 배운 점을 첫 번째로 공유해보세요!'}
+            </p>
+            {user ? (
+              onOpenWrite && (
+                <button
+                  onClick={onOpenWrite}
+                  className="px-6 py-2.5 rounded-2xl text-white font-bold text-xs shadow-sm cursor-pointer"
+                  style={{ backgroundColor: '#F7CAC9' }}
+                >
+                  첫 번째 글 작성하기
+                </button>
+              )
+            ) : (
+              <button
+                onClick={onOpenLogin}
+                className="px-6 py-2.5 rounded-2xl text-white font-bold text-xs shadow-sm cursor-pointer"
+                style={{ backgroundColor: '#92A8D1' }}
+              >
+                로그인하고 글 작성하기
+              </button>
+            )}
           </div>
         ) : (
-          filteredPosts.map((post, idx) => {
+          filteredPosts.map((post) => {
             const postComments = comments.filter((c) => String(c.postId) === String(post.id));
+            const rootComments = postComments.filter((c) => !c.parentId);
             const isLikedByMe = user && post.likedBy && post.likedBy.includes(user.name);
-            const likeCount = post.likes || 0;
+            const likeCount = post.likes || (post.likedBy ? post.likedBy.length : 0);
+            const isExpanded = expandedComments[String(post.id)];
+            const catMeta = getCatMeta(post.category);
+            const isMyPost = user && user.name === post.author;
             const isUserAdmin = user?.role === 'admin' || user?.name.includes('선생님') || user?.name.includes('관리자');
             const isPostAdmin = post.isAdmin || post.author.includes('선생님') || post.author.includes('관리자');
-            const isMyPost = user && post.author === user.name;
             const canDeletePost = isMyPost || isUserAdmin;
-            const isEven = idx % 2 === 0;
-            const avatarBg = isPostAdmin
-              ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-300'
-              : isEven
-              ? 'bg-[#92A8D1]/20 text-[#92A8D1]'
-              : 'bg-[#F7CAC9]/20 text-[#E89E9D]';
-            const catMeta = getCatMeta(post.category);
-            const isExpanded = expandedComments[String(post.id)] ?? false;
 
             return (
               <article
                 key={post.id}
                 id={`post-card-${post.id}`}
-                className={`bg-white p-6 sm:p-7 rounded-[32px] shadow-sm border shrink-0 transition-all ${
+                className={`p-6 sm:p-7 rounded-[32px] shadow-sm border transition-all ${
                   isPostAdmin
-                    ? 'border-amber-200/80 bg-gradient-to-b from-amber-50/20 to-white hover:border-amber-300'
-                    : 'border-gray-100 hover:border-[#F7CAC9]/40'
+                    ? 'bg-gradient-to-br from-amber-50/40 via-white to-white border-amber-200/80 shadow-amber-50/50'
+                    : 'bg-white border-gray-100'
                 }`}
               >
-                {/* Header */}
-                <div className="flex justify-between items-start mb-4">
+                {/* Author Bar */}
+                <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-10 h-10 rounded-full ${avatarBg} flex items-center justify-center font-bold text-sm`}
+                      className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-base shadow-xs ${
+                        isPostAdmin
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-[#F7CAC9]/30 text-[#E89E9D]'
+                      }`}
                     >
                       {isPostAdmin ? '👑' : post.author.slice(0, 1)}
                     </div>
@@ -252,8 +291,9 @@ export const BlogList: React.FC<BlogListProps> = ({
                           {post.author}
                         </p>
                         {isPostAdmin && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200/60">
-                            👑 담임선생님
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200/60 flex items-center gap-0.5">
+                            <Crown className="w-2.5 h-2.5" />
+                            <span>담임선생님</span>
                           </span>
                         )}
                         <span className="text-[10px] font-normal text-gray-400 ml-1">{post.date}</span>
@@ -292,17 +332,13 @@ export const BlogList: React.FC<BlogListProps> = ({
 
                 {/* Post Title if present */}
                 {post.title && (
-                  <h3 className="text-base sm:text-lg font-black text-gray-800 mb-2 tracking-tight">
+                  <h3 className="text-base sm:text-lg font-black text-gray-800 mb-2.5 tracking-tight">
                     {post.title}
                   </h3>
                 )}
 
-                {/* Body Content */}
-                {post.content && (
-                  <p className="text-sm text-gray-700 leading-relaxed mb-4 whitespace-pre-wrap">
-                    {post.content}
-                  </p>
-                )}
+                {/* Body Content with formatted HTML styling */}
+                {renderFormattedContent(post.content)}
 
                 {/* Rich Media Blocks */}
                 {post.blocks && post.blocks.length > 0 && (
@@ -352,10 +388,10 @@ export const BlogList: React.FC<BlogListProps> = ({
                             {block.dividerStyle === 'dashed' && <div className="border-t-2 border-dashed border-gray-200" />}
                             {block.dividerStyle === 'dotted' && <div className="border-t-2 border-dotted border-[#92A8D1]" />}
                             {block.dividerStyle === 'curved' && (
-                              <div className="text-center text-gray-400 text-xs tracking-widest">~ • 🌸 • ~</div>
+                              <div className="text-center text-gray-400 text-xs tracking-widest">~ • 🌸 5-3 • ~</div>
                             )}
                             {(!block.dividerStyle || block.dividerStyle === 'solid') && (
-                              <div className="border-t border-gray-200" />
+                              <div className="border-t border-gray-100" />
                             )}
                           </div>
                         )}
@@ -363,7 +399,7 @@ export const BlogList: React.FC<BlogListProps> = ({
                         {/* Sticker Block */}
                         {block.type === 'sticker' && (
                           <div className="text-center py-2">
-                            <span className="text-5xl inline-block transform hover:scale-110 transition-transform">
+                            <span className="text-5xl inline-block transform hover:scale-110 transition-transform cursor-pointer">
                               {block.sticker}
                             </span>
                           </div>
@@ -371,32 +407,34 @@ export const BlogList: React.FC<BlogListProps> = ({
 
                         {/* Place Block */}
                         {block.type === 'place' && (
-                          <div className="flex items-center gap-3 bg-emerald-50/70 p-3 rounded-2xl border border-emerald-100 text-xs">
-                            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-700">
-                              <MapPin className="w-4 h-4" />
+                          <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-100 flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+                              <MapPin className="w-5 h-5" />
                             </div>
                             <div>
-                              <h4 className="font-bold text-emerald-900">{block.placeName}</h4>
-                              {block.placeDesc && <p className="text-[11px] text-emerald-700">{block.placeDesc}</p>}
+                              <h4 className="text-xs font-bold text-gray-800">📍 {block.placeName}</h4>
+                              {block.placeDesc && <p className="text-[11px] text-gray-500 mt-0.5">{block.placeDesc}</p>}
                             </div>
                           </div>
                         )}
 
                         {/* Poll Block */}
                         {block.type === 'poll' && (
-                          <div className="bg-purple-50/70 p-4 rounded-2xl border border-purple-100 space-y-2 text-xs">
-                            <div className="flex items-center gap-2">
+                          <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-100 space-y-2">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-purple-900">
                               <Vote className="w-4 h-4 text-purple-600" />
-                              <h4 className="font-bold text-purple-900">학급 투표: {block.pollQuestion}</h4>
+                              <span>학급 투표: {block.pollQuestion}</span>
                             </div>
-                            <div className="space-y-1.5">
+                            <div className="space-y-1.5 pt-1">
                               {block.pollOptions?.map((opt) => (
                                 <div
                                   key={opt.id}
-                                  className="bg-white p-2 rounded-xl border border-purple-100 font-medium text-gray-700 flex items-center justify-between"
+                                  className="px-3 py-2 rounded-xl bg-white border border-purple-100 text-xs text-gray-700 flex justify-between items-center"
                                 >
                                   <span>{opt.text}</span>
-                                  <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">참여하기</span>
+                                  <span className="text-[10px] font-bold text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                                    투표참여
+                                  </span>
                                 </div>
                               ))}
                             </div>
@@ -405,43 +443,25 @@ export const BlogList: React.FC<BlogListProps> = ({
 
                         {/* Schedule Block */}
                         {block.type === 'schedule' && (
-                          <div className="flex items-center gap-3 bg-blue-50/70 p-3 rounded-2xl border border-blue-100 text-xs">
-                            <div className="w-8 h-8 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-700">
-                              <Calendar className="w-4 h-4" />
+                          <div className="p-3.5 rounded-2xl bg-blue-50/60 border border-blue-100 flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
+                              <Calendar className="w-5 h-5" />
                             </div>
                             <div>
-                              <h4 className="font-bold text-blue-900">{block.scheduleTitle}</h4>
-                              <p className="text-[11px] text-blue-700">일시: {block.scheduleDate}</p>
+                              <p className="text-[11px] font-bold text-blue-600">📅 {block.scheduleDate}</p>
+                              <h4 className="text-xs font-bold text-gray-800">{block.scheduleTitle}</h4>
                             </div>
                           </div>
                         )}
 
                         {/* Code Block */}
                         {block.type === 'code' && (
-                          <div className="bg-gray-900 text-gray-100 p-3.5 rounded-2xl font-mono text-xs overflow-x-auto">
-                            <div className="text-[10px] text-gray-400 mb-1 font-sans">{block.codeLanguage?.toUpperCase()}</div>
-                            <pre>{block.content}</pre>
+                          <div className="rounded-2xl bg-slate-900 p-4 text-slate-100 font-mono text-xs overflow-x-auto shadow-inner">
+                            <div className="text-[10px] text-slate-400 mb-1 font-bold tracking-wider uppercase">
+                              💻 {block.codeLanguage || 'Code'}
+                            </div>
+                            <pre className="text-emerald-400">{block.content}</pre>
                           </div>
-                        )}
-
-                        {/* Math Formula Block */}
-                        {block.type === 'math' && (
-                          <div className="bg-teal-50/70 p-3 rounded-2xl border border-teal-200 text-center font-serif text-xs font-bold text-teal-900">
-                            수식: {block.content}
-                          </div>
-                        )}
-
-                        {/* Link Block */}
-                        {block.type === 'link' && (
-                          <a
-                            href={block.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-2 p-2.5 bg-gray-50 hover:bg-indigo-50/50 rounded-xl border border-gray-200 hover:border-indigo-300 text-xs text-indigo-600 font-semibold"
-                          >
-                            <Link2 className="w-3.5 h-3.5" />
-                            <span className="truncate">{block.content || block.url}</span>
-                          </a>
                         )}
 
                         {/* Table Block */}
@@ -503,54 +523,207 @@ export const BlogList: React.FC<BlogListProps> = ({
                   )}
                 </div>
 
-                {/* Expandable Comments Drawer */}
+                {/* Expandable Comments & Replies Thread Drawer */}
                 {(isExpanded || postComments.length > 0) && (
-                  <div className="mt-4 pt-3 border-t border-gray-50 space-y-2">
-                    {postComments.map((comment) => {
+                  <div className="mt-4 pt-3 border-t border-gray-50 space-y-3">
+                    {/* Root Comments List */}
+                    {rootComments.map((comment) => {
                       const isCommentAdmin = comment.isAdmin || comment.author.includes('선생님') || comment.author.includes('관리자');
                       const canDeleteComment = user && (user.name === comment.author || isUserAdmin);
+                      const isReplyingThis = activeReplyId === String(comment.id);
+                      const childReplies = postComments.filter((c) => String(c.parentId) === String(comment.id));
 
                       return (
-                        <div
-                          key={comment.id}
-                          className={`p-2.5 rounded-2xl text-xs flex items-start justify-between gap-2 border ${
-                            isCommentAdmin
-                              ? 'bg-amber-50/80 border-amber-200/70'
-                              : 'bg-gray-50/80 border-gray-100'
-                          }`}
-                        >
-                          <div>
-                            <span className="font-bold text-gray-800 mr-1.5 flex-inline items-center gap-1">
-                              {isCommentAdmin && <span className="text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-md font-bold mr-1">👑 담임선생님</span>}
-                              {comment.author}:
-                            </span>
-                            <span className="text-gray-600">{comment.text}</span>
-                            {comment.date && (
-                              <span className="text-[10px] text-gray-400 ml-2">{comment.date}</span>
-                            )}
+                        <div key={comment.id} className="space-y-2">
+                          {/* Parent Comment Card */}
+                          <div
+                            className={`p-3 rounded-2xl text-xs border transition-all ${
+                              isCommentAdmin
+                                ? 'bg-amber-50/80 border-amber-200/70'
+                                : 'bg-gray-50/80 border-gray-100'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {isCommentAdmin && (
+                                    <span className="text-[10px] text-amber-800 bg-amber-200/80 px-1.5 py-0.2 rounded-md font-bold flex items-center gap-0.5">
+                                      👑 담임선생님
+                                    </span>
+                                  )}
+                                  <span className="font-bold text-gray-800">{comment.author}</span>
+                                  {comment.date && (
+                                    <span className="text-[10px] text-gray-400">{comment.date}</span>
+                                  )}
+                                </div>
+                                <p className="text-gray-700 mt-1 leading-relaxed break-words">
+                                  {comment.text}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                {user && (
+                                  <button
+                                    onClick={() => {
+                                      setActiveReplyId(isReplyingThis ? null : String(comment.id));
+                                    }}
+                                    className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer ${
+                                      isReplyingThis
+                                        ? 'bg-[#92A8D1] text-white'
+                                        : 'bg-white hover:bg-gray-200 text-gray-600 border border-gray-200'
+                                    }`}
+                                  >
+                                    <Reply className="w-3 h-3" />
+                                    <span>{isReplyingThis ? '답글 닫기' : '답글'}</span>
+                                  </button>
+                                )}
+
+                                {canDeleteComment && (
+                                  <button
+                                    onClick={() => {
+                                      if (window.confirm('이 댓글을 삭제하시겠습니까? (하위 답글도 함께 정리됩니다)')) {
+                                        onDeleteComment(comment.id);
+                                        // Also delete child replies
+                                        childReplies.forEach((cr) => onDeleteComment(cr.id));
+                                      }
+                                    }}
+                                    className="text-gray-300 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                                    title={user?.name === comment.author ? '댓글 삭제' : '관리자 권한으로 삭제'}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          {canDeleteComment && (
-                            <button
-                              onClick={() => {
-                                if (window.confirm('이 댓글을 삭제하시겠습니까?')) {
-                                  onDeleteComment(comment.id);
-                                }
-                              }}
-                              className="text-gray-300 hover:text-red-500 p-0.5 cursor-pointer shrink-0"
-                              title={user?.name === comment.author ? '댓글 삭제' : '관리자 권한으로 삭제'}
+
+                          {/* Nested Replies (대댓글) List */}
+                          {childReplies.length > 0 && (
+                            <div className="ml-4 sm:ml-7 pl-3 border-l-2 border-[#92A8D1]/40 space-y-2">
+                              {childReplies.map((reply) => {
+                                const isReplyAdmin = reply.isAdmin || reply.author.includes('선생님') || reply.author.includes('관리자');
+                                const canDeleteReply = user && (user.name === reply.author || isUserAdmin);
+
+                                return (
+                                  <div
+                                    key={reply.id}
+                                    className={`p-2.5 rounded-2xl text-xs border flex items-start justify-between gap-2 ${
+                                      isReplyAdmin
+                                        ? 'bg-amber-50/90 border-amber-200/80'
+                                        : 'bg-white border-gray-100 shadow-2xs'
+                                    }`}
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <CornerDownRight className="w-3 h-3 text-[#92A8D1] shrink-0" />
+                                        {isReplyAdmin && (
+                                          <span className="text-[10px] text-amber-800 bg-amber-200/80 px-1.5 py-0.2 rounded-md font-bold">
+                                            👑 담임선생님
+                                          </span>
+                                        )}
+                                        <span className="font-bold text-gray-800">{reply.author}</span>
+                                        {reply.replyToAuthor && (
+                                          <span className="text-[10px] font-bold text-[#6B84B5] bg-[#92A8D1]/20 px-1.5 py-0.2 rounded-md">
+                                            @{reply.replyToAuthor}
+                                          </span>
+                                        )}
+                                        {reply.date && (
+                                          <span className="text-[10px] text-gray-400">{reply.date}</span>
+                                        )}
+                                      </div>
+                                      <p className="text-gray-700 mt-1 pl-4 leading-relaxed break-words">
+                                        {reply.text}
+                                      </p>
+                                    </div>
+
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {user && (
+                                        <button
+                                          onClick={() => {
+                                            setActiveReplyId(String(comment.id));
+                                            setReplyInputs((prev) => ({
+                                              ...prev,
+                                              [String(comment.id)]: `@${reply.author} `
+                                            }));
+                                          }}
+                                          className="text-gray-400 hover:text-gray-700 p-1 text-[10px] cursor-pointer"
+                                          title="답글에 답글달기"
+                                        >
+                                          <Reply className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                      {canDeleteReply && (
+                                        <button
+                                          onClick={() => {
+                                            if (window.confirm('이 답글을 삭제하시겠습니까?')) {
+                                              onDeleteComment(reply.id);
+                                            }
+                                          }}
+                                          className="text-gray-300 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                                          title={user?.name === reply.author ? '답글 삭제' : '관리자 권한으로 삭제'}
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Inline Reply Input Box (when activeReplyId === comment.id) */}
+                          {isReplyingThis && user && (
+                            <form
+                              onSubmit={(e) => handleReplySubmit(post.id, comment, e)}
+                              className="ml-4 sm:ml-7 pl-3 border-l-2 border-[#92A8D1] space-y-1.5 animate-in fade-in duration-200"
                             >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
+                              <div className="flex items-center justify-between text-[11px] text-[#6B84B5] font-bold px-1">
+                                <span>↳ {comment.author} 님에게 답글 작성</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveReplyId(null)}
+                                  className="text-gray-400 hover:text-gray-600 cursor-pointer flex items-center gap-0.5"
+                                >
+                                  <X className="w-3 h-3" />
+                                  <span>취소</span>
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={replyInputs[String(comment.id)] || ''}
+                                  onChange={(e) =>
+                                    setReplyInputs((prev) => ({
+                                      ...prev,
+                                      [String(comment.id)]: e.target.value
+                                    }))
+                                  }
+                                  placeholder={`${user.name}(으)로 ${comment.author} 님에게 답글 작성...`}
+                                  className="flex-1 bg-white px-3.5 py-2 rounded-xl text-xs text-gray-700 placeholder-gray-400 border border-[#92A8D1] focus:ring-1 focus:ring-[#92A8D1] outline-none shadow-xs"
+                                  required
+                                />
+                                <button
+                                  type="submit"
+                                  className="px-3.5 py-2 rounded-xl text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95 flex items-center gap-1 shrink-0"
+                                  style={{ backgroundColor: '#92A8D1' }}
+                                >
+                                  <Send className="w-3 h-3" />
+                                  <span>등록</span>
+                                </button>
+                              </div>
+                            </form>
                           )}
                         </div>
                       );
                     })}
 
-                    {/* Comment input form */}
+                    {/* New Root Comment Form */}
                     {user ? (
                       <form
                         onSubmit={(e) => handleCommentSubmit(post.id, e)}
-                        className="flex items-center gap-2 pt-1"
+                        className="flex items-center gap-2 pt-2"
                       >
                         <input
                           type="text"
@@ -562,15 +735,16 @@ export const BlogList: React.FC<BlogListProps> = ({
                             }))
                           }
                           placeholder={`${user.name}(으)로 따뜻한 댓글 남기기...`}
-                          className="flex-1 bg-gray-50 focus:bg-white px-3.5 py-2 rounded-xl text-xs text-gray-700 placeholder-gray-400 border border-gray-200 focus:border-[#92A8D1] outline-none"
+                          className="flex-1 bg-gray-50 focus:bg-white px-3.5 py-2.5 rounded-xl text-xs text-gray-700 placeholder-gray-400 border border-gray-200 focus:border-[#92A8D1] outline-none transition-all shadow-2xs"
                           required
                         />
                         <button
                           type="submit"
-                          className="p-2 rounded-xl text-white shadow-xs cursor-pointer active:scale-95"
+                          className="px-4 py-2.5 rounded-xl text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95 flex items-center gap-1.5 shrink-0"
                           style={{ backgroundColor: '#92A8D1' }}
                         >
                           <Send className="w-3.5 h-3.5" />
+                          <span>댓글</span>
                         </button>
                       </form>
                     ) : (
@@ -579,7 +753,7 @@ export const BlogList: React.FC<BlogListProps> = ({
                           onClick={onOpenLogin}
                           className="text-xs text-[#92A8D1] font-semibold hover:underline cursor-pointer"
                         >
-                          로그인하고 친구에게 댓글 남기기 ✨
+                          로그인하고 친구에게 댓글과 답글 남기기 ✨
                         </button>
                       </div>
                     )}
