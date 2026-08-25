@@ -16,7 +16,13 @@ import {
   CornerDownRight,
   Reply,
   X,
-  Crown
+  Crown,
+  Lock,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  CheckCircle2,
+  ShieldAlert
 } from 'lucide-react';
 import { Post, Comment, Student, Category, RichBlock } from '../types';
 
@@ -24,11 +30,13 @@ interface BlogListProps {
   posts: Post[];
   comments: Comment[];
   categories?: Category[];
+  students?: Student[];
   user: Student | null;
   filterUser?: string | null;
   filterTag?: string | null;
   onClearFilter?: () => void;
   onAddPost: (content: string, category: string, emoji: string, title?: string, blocks?: RichBlock[]) => void;
+  onEditPost?: (post: Post) => void;
   onDeletePost: (postId: number | string) => void;
   onToggleLike: (postId: number | string) => void;
   onAddComment: (postId: number | string, text: string, parentId?: number | string, replyToAuthor?: string) => void;
@@ -49,11 +57,13 @@ export const BlogList: React.FC<BlogListProps> = ({
   posts,
   comments,
   categories = DEFAULT_CATEGORY_ITEMS,
+  students = [],
   user,
   filterUser,
   filterTag,
   onClearFilter,
   onAddPost,
+  onEditPost,
   onDeletePost,
   onToggleLike,
   onAddComment,
@@ -68,6 +78,95 @@ export const BlogList: React.FC<BlogListProps> = ({
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null); // commentId
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
+
+  // Password Verification Modal State
+  const [passwordModal, setPasswordModal] = useState<{
+    isOpen: boolean;
+    post: Post | null;
+    action: 'edit' | 'delete' | null;
+  }>({
+    isOpen: false,
+    post: null,
+    action: null
+  });
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [showPasswordText, setShowPasswordText] = useState(false);
+  const [actionSuccessToast, setActionSuccessToast] = useState<string | null>(null);
+
+  const openPasswordModal = (post: Post, action: 'edit' | 'delete') => {
+    setPasswordModal({
+      isOpen: true,
+      post,
+      action
+    });
+    setPasswordInput('');
+    setPasswordError(null);
+    setShowPasswordText(false);
+  };
+
+  const closePasswordModal = () => {
+    setPasswordModal({
+      isOpen: false,
+      post: null,
+      action: null
+    });
+    setPasswordInput('');
+    setPasswordError(null);
+  };
+
+  const handlePasswordVerifyAndProceed = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordModal.post || !passwordModal.action) return;
+
+    const post = passwordModal.post;
+    const enteredPw = passwordInput.trim();
+
+    if (!enteredPw) {
+      setPasswordError('비밀번호를 입력해주세요.');
+      return;
+    }
+
+    // Check author password in students list
+    const authorStudent = students.find(
+      (s) => s.name.trim() === post.author.trim()
+    );
+
+    const isTeacherAuthor =
+      post.author.includes('선생님') ||
+      post.author.includes('관리자') ||
+      post.isAdmin;
+
+    const expectedPw = isTeacherAuthor
+      ? '0526'
+      : authorStudent
+      ? String(authorStudent.pw).trim()
+      : null;
+
+    // Admin master password '0526' always works
+    const isMasterAdminPw = enteredPw === '0526';
+    const isMatch = (expectedPw && enteredPw === expectedPw) || isMasterAdminPw;
+
+    if (!isMatch) {
+      setPasswordError('비밀번호가 일치하지 않습니다. 비밀번호를 다시 확인해주세요.');
+      return;
+    }
+
+    // Success!
+    const targetAction = passwordModal.action;
+    const targetPost = passwordModal.post;
+    closePasswordModal();
+
+    if (targetAction === 'delete') {
+      onDeletePost(targetPost.id);
+      setActionSuccessToast(`'${targetPost.title || targetPost.author + '님의 글'}'이(가) 정상적으로 삭제되었습니다.`);
+      setTimeout(() => setActionSuccessToast(null), 3000);
+    } else if (targetAction === 'edit') {
+      if (onEditPost) {
+        onEditPost(targetPost);
+      }
+    }
+  };
 
   const filteredPosts = posts
     .filter((p) => {
@@ -312,22 +411,27 @@ export const BlogList: React.FC<BlogListProps> = ({
                     </div>
                   </div>
 
-                  {canDeletePost && (
+                  {/* Post Action Buttons: Edit and Delete (Protected by Password Verification) */}
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
-                      onClick={() => {
-                        const confirmMsg = isMyPost
-                          ? '이 글을 삭제하시겠습니까?'
-                          : `관리자 권한으로 '${post.author}' 학생의 글을 삭제하시겠습니까?`;
-                        if (window.confirm(confirmMsg)) {
-                          onDeletePost(post.id);
-                        }
-                      }}
-                      className="text-gray-300 hover:text-red-500 p-1.5 rounded-xl hover:bg-red-50 transition-colors cursor-pointer"
-                      title={isMyPost ? '내 글 삭제' : '관리자 권한으로 삭제'}
+                      type="button"
+                      onClick={() => openPasswordModal(post, 'edit')}
+                      className="flex items-center gap-1 text-gray-500 hover:text-[#6B84B5] bg-gray-50 hover:bg-[#92A8D1]/15 px-2.5 py-1.5 rounded-xl border border-gray-150 transition-all text-xs font-bold cursor-pointer active:scale-95 shadow-2xs"
+                      title="비밀번호 확인 후 글 수정"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <PenLine className="w-3.5 h-3.5 text-[#6B84B5]" />
+                      <span>수정</span>
                     </button>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => openPasswordModal(post, 'delete')}
+                      className="flex items-center gap-1 text-gray-500 hover:text-red-600 bg-gray-50 hover:bg-red-50 px-2.5 py-1.5 rounded-xl border border-gray-150 transition-all text-xs font-bold cursor-pointer active:scale-95 shadow-2xs"
+                      title="비밀번호 확인 후 글 삭제"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                      <span>삭제</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Post Title if present */}
@@ -764,6 +868,165 @@ export const BlogList: React.FC<BlogListProps> = ({
           })
         )}
       </div>
+
+      {/* Action Success Toast Notification */}
+      {actionSuccessToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-gray-900/95 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-bold animate-in slide-in-from-bottom duration-200 border border-gray-700">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{actionSuccessToast}</span>
+        </div>
+      )}
+
+      {/* Password Verification Modal (수정 및 삭제 본인 비밀번호 확인 모달) */}
+      {passwordModal.isOpen && passwordModal.post && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              closePasswordModal();
+            }
+          }}
+        >
+          <div className="bg-white rounded-[32px] p-6 sm:p-7 max-w-md w-full shadow-2xl border border-gray-100 space-y-4.5 animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-sm shadow-xs ${
+                    passwordModal.action === 'edit'
+                      ? 'bg-[#92A8D1]/20 text-[#6B84B5]'
+                      : 'bg-rose-100 text-rose-600'
+                  }`}
+                >
+                  {passwordModal.action === 'edit' ? (
+                    <PenLine className="w-5 h-5" />
+                  ) : (
+                    <Trash2 className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 text-sm sm:text-base">
+                    {passwordModal.action === 'edit' ? '게시글 수정' : '게시글 삭제'}
+                  </h3>
+                  <p className="text-[11px] text-gray-400">
+                    본인 확인을 위해 비밀번호를 입력해주세요
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closePasswordModal}
+                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Target Post Info Preview */}
+            <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-150 space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] text-gray-500 font-semibold">
+                <span className="flex items-center gap-1 text-gray-700">
+                  <span className="font-bold text-gray-900">👤 {passwordModal.post.author}</span> 학생의 글
+                </span>
+                <span className="text-[10px] text-gray-400">{passwordModal.post.date}</span>
+              </div>
+              <p className="text-xs font-bold text-gray-800 line-clamp-1">
+                {passwordModal.post.title || (passwordModal.post.content ? passwordModal.post.content.replace(/<[^>]*>?/gm, '').slice(0, 35) + '...' : '제목 없음')}
+              </p>
+            </div>
+
+            {/* Explanatory Guide */}
+            <p className="text-xs text-gray-600 leading-relaxed">
+              작성자 <strong className="text-gray-900 font-bold">[{passwordModal.post.author}]</strong> 학생의 로그인 비밀번호(또는 선생님 관리자 비밀번호)를 입력하면 글을 {passwordModal.action === 'edit' ? '수정할 수 있는 스마트에디터가 열립니다.' : '즉시 삭제합니다.'}
+            </p>
+
+            {/* Password Input Form */}
+            <form onSubmit={handlePasswordVerifyAndProceed} className="space-y-3.5 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Lock className="w-3.5 h-3.5 text-gray-400" />
+                    비밀번호 입력
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-normal">
+                    선생님(0526) 또는 학생 본인 번호/비번
+                  </span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPasswordText ? 'text' : 'password'}
+                    autoFocus
+                    value={passwordInput}
+                    onChange={(e) => {
+                      setPasswordInput(e.target.value);
+                      if (passwordError) setPasswordError(null);
+                    }}
+                    placeholder="비밀번호를 입력하세요"
+                    className={`w-full px-4 py-3 bg-gray-50 focus:bg-white rounded-2xl text-xs sm:text-sm font-semibold text-gray-800 border outline-none transition-all pr-11 shadow-2xs ${
+                      passwordError
+                        ? 'border-red-400 focus:ring-2 focus:ring-red-300'
+                        : 'border-gray-200 focus:border-[#92A8D1] focus:ring-2 focus:ring-[#92A8D1]/30'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordText(!showPasswordText)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1.5 rounded-lg cursor-pointer"
+                    title={showPasswordText ? '비밀번호 가리기' : '비밀번호 보기'}
+                  >
+                    {showPasswordText ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Error Message */}
+                {passwordError && (
+                  <div className="flex items-center gap-1.5 mt-2 text-xs font-bold text-red-600 animate-in fade-in">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                    <span>{passwordError}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closePasswordModal}
+                  className="px-4 py-2.5 rounded-2xl text-xs font-bold text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className={`px-5 py-2.5 rounded-2xl text-xs font-bold text-white shadow-md active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 ${
+                    passwordModal.action === 'edit'
+                      ? 'bg-[#92A8D1] hover:bg-[#7d97c4]'
+                      : 'bg-rose-500 hover:bg-rose-600'
+                  }`}
+                >
+                  {passwordModal.action === 'edit' ? (
+                    <>
+                      <PenLine className="w-3.5 h-3.5" />
+                      <span>비밀번호 확인 후 수정</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>비밀번호 확인 후 삭제</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

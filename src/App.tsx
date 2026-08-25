@@ -65,6 +65,7 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [filterStudentName, setFilterStudentName] = useState<string | null>(null);
   const [filterTag, setFilterTag] = useState<string | null>(null);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
 
   const categories = db.Categories && db.Categories.length > 0 ? db.Categories : DEFAULT_CATEGORIES;
   const notices = db.Notices && db.Notices.length > 0 ? db.Notices : DEFAULT_NOTICES;
@@ -239,7 +240,7 @@ export default function App() {
     apiCall('Posts', 'add', newPost);
   };
 
-  // Publish from BlogEditor
+  // Publish from BlogEditor (New Post)
   const handlePublishFromEditor = (
     title: string,
     content: string,
@@ -248,17 +249,67 @@ export default function App() {
     blocks: RichBlock[]
   ) => {
     handleAddPost(content, category, emoji, title, blocks);
+    setEditingPost(null);
     setView('home');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Delete post (Students delete their own, Admin can delete any)
+  // Start editing a post
+  const handleStartEditPost = (post: Post) => {
+    setEditingPost(post);
+    setView('write');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Update existing post
+  const handleUpdatePost = (
+    postId: number | string,
+    title: string,
+    content: string,
+    category: string,
+    emoji: string,
+    blocks: RichBlock[]
+  ) => {
+    setDb((prev) => ({
+      ...prev,
+      Posts: prev.Posts.map((p) => {
+        if (String(p.id) === String(postId)) {
+          return {
+            ...p,
+            title: title || undefined,
+            content,
+            category,
+            emoji,
+            blocks: blocks || []
+          };
+        }
+        return p;
+      })
+    }));
+
+    apiCall('Posts', 'update', {
+      id: postId,
+      title: title || undefined,
+      content,
+      category,
+      emoji,
+      blocks: blocks || []
+    });
+
+    setEditingPost(null);
+    setView('home');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Delete post (verified by password)
   const handleDeletePost = (postId: number | string) => {
     setDb((prev) => ({
       ...prev,
       Posts: prev.Posts.filter((p) => String(p.id) !== String(postId)),
       Comments: prev.Comments.filter((c) => String(c.postId) !== String(postId))
     }));
+
+    apiCall('Posts', 'delete', { id: postId });
   };
 
   // Toggle Like
@@ -544,6 +595,9 @@ export default function App() {
       <Navbar
         view={view}
         setView={(v) => {
+          if (v === 'write') {
+            setEditingPost(null);
+          }
           setView(v);
           handleClearFilters();
         }}
@@ -608,11 +662,13 @@ export default function App() {
               posts={db.Posts}
               comments={db.Comments}
               categories={categories}
+              students={db.Students}
               user={user}
               filterUser={filterStudentName}
               filterTag={filterTag}
               onClearFilter={handleClearFilters}
               onAddPost={handleAddPost}
+              onEditPost={handleStartEditPost}
               onDeletePost={handleDeletePost}
               onToggleLike={handleToggleLike}
               onAddComment={handleAddComment}
@@ -620,17 +676,25 @@ export default function App() {
               onOpenLogin={() => {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              onOpenWrite={() => setView('write')}
+              onOpenWrite={() => {
+                setEditingPost(null);
+                setView('write');
+              }}
             />
           )}
 
-          {/* Dedicated SmartEditor Write Post View */}
+          {/* Dedicated SmartEditor Write & Edit Post View */}
           {view === 'write' && (
             <BlogEditor
               user={user}
               categories={categories}
+              editingPost={editingPost}
               onPublish={handlePublishFromEditor}
-              onCancel={() => setView('home')}
+              onUpdatePost={handleUpdatePost}
+              onCancel={() => {
+                setEditingPost(null);
+                setView('home');
+              }}
               onOpenLogin={() => setView('home')}
             />
           )}
@@ -661,7 +725,10 @@ export default function App() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setView('write')}
+                        onClick={() => {
+                          setEditingPost(null);
+                          setView('write');
+                        }}
                         className="px-4 py-2 rounded-2xl text-white font-bold text-xs shadow-xs cursor-pointer"
                         style={{ backgroundColor: isUserAdmin ? '#92A8D1' : '#F7CAC9' }}
                       >
@@ -679,16 +746,21 @@ export default function App() {
                     posts={db.Posts}
                     comments={db.Comments}
                     categories={categories}
+                    students={db.Students}
                     user={user}
                     filterUser={user.name}
                     onClearFilter={handleClearFilters}
                     onAddPost={handleAddPost}
+                    onEditPost={handleStartEditPost}
                     onDeletePost={handleDeletePost}
                     onToggleLike={handleToggleLike}
                     onAddComment={handleAddComment}
                     onDeleteComment={handleDeleteComment}
                     onOpenLogin={() => {}}
-                    onOpenWrite={() => setView('write')}
+                    onOpenWrite={() => {
+                      setEditingPost(null);
+                      setView('write');
+                    }}
                   />
                 </div>
               ) : (

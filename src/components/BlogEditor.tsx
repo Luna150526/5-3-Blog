@@ -38,14 +38,17 @@ import {
   HelpCircle,
   Palette,
   CheckCircle2,
-  Crown
+  Crown,
+  PenLine
 } from 'lucide-react';
-import { Student, Category, RichBlock } from '../types';
+import { Student, Category, RichBlock, Post } from '../types';
 
 interface BlogEditorProps {
   user: Student | null;
   categories: Category[];
+  editingPost?: Post | null;
   onPublish: (title: string, content: string, category: string, emoji: string, blocks: RichBlock[]) => void;
+  onUpdatePost?: (postId: number | string, title: string, content: string, category: string, emoji: string, blocks: RichBlock[]) => void;
   onCancel: () => void;
   onOpenLogin: () => void;
 }
@@ -119,7 +122,9 @@ const DRAFT_STORAGE_KEY = 'class_5_3_editor_draft_v2';
 export const BlogEditor: React.FC<BlogEditorProps> = ({
   user,
   categories,
+  editingPost,
   onPublish,
+  onUpdatePost,
   onCancel,
   onOpenLogin
 }) => {
@@ -174,8 +179,20 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
 
   const editorRef = useRef<HTMLDivElement>(null);
 
-  // Initialize draft
+  // Initialize from editingPost or saved draft
   useEffect(() => {
+    if (editingPost) {
+      setTitle(editingPost.title || '');
+      setSelectedCategory(editingPost.category || categories[0]?.name || '일상');
+      setSelectedEmoji(editingPost.emoji || categories[0]?.emoji || '📝');
+      setMainContent(editingPost.content || '');
+      if (editorRef.current) {
+        editorRef.current.innerHTML = editingPost.content || '';
+      }
+      setBlocks(editingPost.blocks || []);
+      return;
+    }
+
     try {
       const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
       if (savedDraft) {
@@ -194,7 +211,7 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
     } catch {
       // ignore
     }
-  }, []);
+  }, [editingPost, categories]);
 
   // Save Draft
   const handleSaveDraft = () => {
@@ -520,10 +537,10 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
     });
   };
 
-  // Publish Form Submission
+  // Publish Form Submission (New post or Update existing post)
   const handlePublishSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
+    if (!user && !editingPost) {
       onOpenLogin();
       return;
     }
@@ -538,11 +555,15 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
       return;
     }
 
-    onPublish(title.trim(), currentHtml, selectedCategory, selectedEmoji, blocks);
-    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    if (editingPost && onUpdatePost) {
+      onUpdatePost(editingPost.id, title.trim(), currentHtml, selectedCategory, selectedEmoji, blocks);
+    } else {
+      onPublish(title.trim(), currentHtml, selectedCategory, selectedEmoji, blocks);
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    }
   };
 
-  if (!user) {
+  if (!user && !editingPost) {
     return (
       <div className="bg-white rounded-[32px] p-12 text-center border border-gray-100 shadow-sm max-w-lg mx-auto my-8">
         <div className="w-16 h-16 rounded-full bg-[#F7CAC9]/30 flex items-center justify-center mx-auto text-3xl mb-4">
@@ -571,7 +592,11 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
     );
   }
 
-  const isUserAdmin = user.role === 'admin' || user.name.includes('선생님') || user.name.includes('관리자');
+  const isUserAdmin =
+    (user && (user.role === 'admin' || user.name.includes('선생님') || user.name.includes('관리자'))) ||
+    (editingPost && (editingPost.isAdmin || editingPost.author.includes('선생님')));
+
+  const displayAuthorName = user ? user.name : (editingPost ? editingPost.author : '작성자');
 
   return (
     <div className="w-full space-y-4 pb-12 animate-in fade-in duration-200">
@@ -602,8 +627,14 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
                 isUserAdmin ? 'text-amber-800 bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-200' : 'text-gray-800'
               }`}>
                 {isUserAdmin && <Crown className="w-3 h-3 text-amber-600" />}
-                {user.name} {isUserAdmin && '(관리자)'}
+                {displayAuthorName} {isUserAdmin && '(관리자)'}
               </span>
+              {editingPost && (
+                <span className="text-[10px] font-extrabold bg-[#92A8D1]/20 text-[#6B84B5] px-2 py-0.5 rounded-full border border-[#92A8D1]/40 flex items-center gap-1">
+                  <PenLine className="w-2.5 h-2.5" />
+                  <span>수정 모드</span>
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -629,26 +660,53 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
             </select>
           </div>
 
-          {/* Draft Save Button */}
-          <button
-            type="button"
-            onClick={handleSaveDraft}
-            className="px-3.5 py-2 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5"
-          >
-            <Save className="w-3.5 h-3.5" />
-            <span>임시저장</span>
-          </button>
+          {/* Draft Save Button (only when creating new post) */}
+          {!editingPost && (
+            <button
+              type="button"
+              onClick={handleSaveDraft}
+              className="px-3.5 py-2 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>임시저장</span>
+            </button>
+          )}
 
-          {/* Publish Button */}
+          {/* Cancel button if editing */}
+          {editingPost && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-3.5 py-2 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>수정 취소</span>
+            </button>
+          )}
+
+          {/* Publish / Update Button */}
           <button
             id="editor-publish-btn"
             type="button"
             onClick={handlePublishSubmit}
             className="px-5 sm:px-6 py-2.5 rounded-2xl text-white font-black text-xs sm:text-sm shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-2"
-            style={{ backgroundColor: isUserAdmin ? '#92A8D1' : '#F7CAC9' }}
+            style={{
+              backgroundColor: editingPost
+                ? '#6B84B5'
+                : (isUserAdmin ? '#92A8D1' : '#F7CAC9')
+            }}
           >
-            <Send className="w-4 h-4" />
-            <span>발행하기</span>
+            {editingPost ? (
+              <>
+                <CheckCircle2 className="w-4 h-4" />
+                <span>수정 완료 (저장)</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                <span>발행하기</span>
+              </>
+            )}
           </button>
         </div>
       </div>
