@@ -36,10 +36,13 @@ export interface GalleryItem {
 
 export interface RichBlock {
   id: string;
-  type: 'text' | 'image' | 'quote' | 'divider' | 'sticker' | 'link' | 'place' | 'code' | 'math' | 'poll' | 'schedule' | 'table';
+  type: 'text' | 'image' | 'video' | 'file' | 'quote' | 'divider' | 'sticker' | 'link' | 'place' | 'code' | 'math' | 'poll' | 'schedule' | 'table';
   content?: string;
   url?: string;
   caption?: string;
+  videoType?: 'youtube' | 'file' | 'vimeo' | 'mp4';
+  fileName?: string;
+  fileSize?: string;
   quoteStyle?: 'line' | 'box' | 'speech' | 'marks';
   quoteAuthor?: string;
   dividerStyle?: 'solid' | 'dashed' | 'dotted' | 'curved';

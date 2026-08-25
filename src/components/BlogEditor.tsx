@@ -39,9 +39,83 @@ import {
   Palette,
   CheckCircle2,
   Crown,
-  PenLine
+  PenLine,
+  FileUp,
+  Film,
+  Play,
+  FileVideo,
+  Upload
 } from 'lucide-react';
 import { Student, Category, RichBlock, Post } from '../types';
+
+// Convert YouTube URLs (standard, share, shorts) to embed URLs
+export const getYoutubeEmbedUrl = (url: string): string | null => {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  if (match && match[2].length === 11) {
+    return `https://www.youtube-nocookie.com/embed/${match[2]}`;
+  }
+  return null;
+};
+
+// Process and optimize image file to Base64
+export const processImageFile = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const maxWidth = 1200;
+        const maxHeight = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.85));
+        } else {
+          resolve(e.target?.result as string);
+        }
+      };
+      img.onerror = () => resolve(e.target?.result as string);
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+// Process video file to Data URL
+export const processVideoFile = (file: File): Promise<{ url: string; fileName: string; fileSize: string }> => {
+  return new Promise((resolve, reject) => {
+    const sizeInMb = (file.size / (1024 * 1024)).toFixed(1) + 'MB';
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      resolve({
+        url: e.target?.result as string,
+        fileName: file.name,
+        fileSize: sizeInMb
+      });
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
 
 interface BlogEditorProps {
   user: Student | null;
@@ -156,15 +230,27 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
   // Popups / Modals
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
-  // Temporary inputs for modals
+  // Media Tab & File states (Supports both local file uploads & web links)
+  const [imageInputTab, setImageInputTab] = useState<'file' | 'url'>('file');
+  const [tempImageFile, setTempImageFile] = useState<{ dataUrl: string; name: string; size: string } | null>(null);
   const [tempImageUrl, setTempImageUrl] = useState('');
   const [tempImageCaption, setTempImageCaption] = useState('');
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
+
+  const [videoInputTab, setVideoInputTab] = useState<'file' | 'url'>('file');
+  const [tempVideoFile, setTempVideoFile] = useState<{ dataUrl: string; name: string; size: string } | null>(null);
+  const [tempVideoUrl, setTempVideoUrl] = useState('');
+  const [tempVideoCaption, setTempVideoCaption] = useState('');
+  const [isDraggingVideo, setIsDraggingVideo] = useState(false);
+
+  const [isProcessingMedia, setIsProcessingMedia] = useState(false);
+
+  // Other modal temporary states
   const [tempQuoteText, setTempQuoteText] = useState('');
   const [tempQuoteAuthor, setTempQuoteAuthor] = useState('');
   const [tempQuoteStyle, setTempQuoteStyle] = useState<'line' | 'box' | 'speech' | 'marks'>('line');
   const [tempPlaceName, setTempPlaceName] = useState('');
   const [tempPlaceDesc, setTempPlaceDesc] = useState('');
-  const [tempVideoUrl, setTempVideoUrl] = useState('');
   const [tempPollQuestion, setTempPollQuestion] = useState('');
   const [tempPollOptions, setTempPollOptions] = useState<string[]>(['옵션 1', '옵션 2']);
   const [tempCode, setTempCode] = useState('');
@@ -367,20 +453,123 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
     setBlocks((prev) => prev.filter((b) => b.id !== id));
   };
 
-  // Insert Photo
-  const handleInsertImage = () => {
-    if (!tempImageUrl.trim()) {
-      alert('이미지 웹 URL을 입력해주세요.');
+  // Handle Image File Selection (via input or drop)
+  const handleImageFileSelect = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일(JPG, PNG, GIF, WebP 등)만 첨부할 수 있습니다.');
       return;
     }
-    addBlock({
-      id: String(Date.now()),
-      type: 'image',
-      url: tempImageUrl.trim(),
-      caption: tempImageCaption.trim() || undefined
-    });
+    try {
+      setIsProcessingMedia(true);
+      const dataUrl = await processImageFile(file);
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(2) + 'MB';
+      setTempImageFile({
+        dataUrl,
+        name: file.name,
+        size: sizeMb
+      });
+    } catch (err) {
+      console.error(err);
+      alert('이미지 파일을 읽는 도중 오류가 발생했습니다.');
+    } finally {
+      setIsProcessingMedia(false);
+    }
+  };
+
+  // Insert Photo (Supports both file upload and web URL)
+  const handleInsertImage = () => {
+    if (imageInputTab === 'file') {
+      if (!tempImageFile?.dataUrl) {
+        alert('첨부할 사진 파일을 선택하거나 드래그하여 올려주세요.');
+        return;
+      }
+      addBlock({
+        id: String(Date.now()),
+        type: 'image',
+        url: tempImageFile.dataUrl,
+        caption: tempImageCaption.trim() || undefined,
+        fileName: tempImageFile.name,
+        fileSize: tempImageFile.size
+      });
+    } else {
+      if (!tempImageUrl.trim()) {
+        alert('이미지 웹 URL을 입력해주세요.');
+        return;
+      }
+      addBlock({
+        id: String(Date.now()),
+        type: 'image',
+        url: tempImageUrl.trim(),
+        caption: tempImageCaption.trim() || undefined
+      });
+    }
+
+    setTempImageFile(null);
     setTempImageUrl('');
     setTempImageCaption('');
+  };
+
+  // Handle Video File Selection (via input or drop)
+  const handleVideoFileSelect = async (file: File) => {
+    if (!file.type.startsWith('video/')) {
+      alert('동영상 파일(MP4, WebM, MOV 등)만 첨부할 수 있습니다.');
+      return;
+    }
+    // Limit to reasonable size for browser local storage/preview (e.g. 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      alert('동영상 파일 용량은 최대 50MB 이하를 권장합니다.');
+    }
+    try {
+      setIsProcessingMedia(true);
+      const res = await processVideoFile(file);
+      setTempVideoFile({
+        dataUrl: res.url,
+        name: res.fileName,
+        size: res.fileSize
+      });
+    } catch (err) {
+      console.error(err);
+      alert('동영상 파일을 읽는 도중 오류가 발생했습니다.');
+    } finally {
+      setIsProcessingMedia(false);
+    }
+  };
+
+  // Insert Video (Supports both file upload and YouTube/Web links)
+  const handleInsertVideo = () => {
+    if (videoInputTab === 'file') {
+      if (!tempVideoFile?.dataUrl) {
+        alert('첨부할 동영상 파일을 선택하거나 드래그하여 올려주세요.');
+        return;
+      }
+      addBlock({
+        id: String(Date.now()),
+        type: 'video',
+        url: tempVideoFile.dataUrl,
+        videoType: 'file',
+        caption: tempVideoCaption.trim() || undefined,
+        fileName: tempVideoFile.name,
+        fileSize: tempVideoFile.size
+      });
+    } else {
+      if (!tempVideoUrl.trim()) {
+        alert('동영상 웹 링크 또는 유튜브 URL을 입력해주세요.');
+        return;
+      }
+      const rawUrl = tempVideoUrl.trim();
+      const ytEmbed = getYoutubeEmbedUrl(rawUrl);
+      addBlock({
+        id: String(Date.now()),
+        type: 'video',
+        url: ytEmbed || rawUrl,
+        videoType: ytEmbed ? 'youtube' : 'mp4',
+        caption: tempVideoCaption.trim() || undefined
+      });
+    }
+
+    setTempVideoFile(null);
+    setTempVideoUrl('');
+    setTempVideoCaption('');
   };
 
   // Insert Quote
@@ -1257,8 +1446,48 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
                         className="max-h-72 w-auto mx-auto rounded-2xl object-cover shadow-sm"
                         referrerPolicy="no-referrer"
                       />
+                      {block.fileName && (
+                        <div className="text-[11px] text-gray-400 font-medium">
+                          📁 {block.fileName} {block.fileSize ? `(${block.fileSize})` : ''}
+                        </div>
+                      )}
                       {block.caption && (
                         <p className="text-xs text-gray-500 italic">📷 {block.caption}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Video Block */}
+                  {block.type === 'video' && (
+                    <div className="space-y-2 text-center">
+                      {block.videoType === 'youtube' || (block.url && block.url.includes('embed')) ? (
+                        <div className="relative aspect-video max-w-lg mx-auto rounded-2xl overflow-hidden shadow-sm border border-gray-200">
+                          <iframe
+                            src={block.url}
+                            title="동영상 플레이어"
+                            className="w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      ) : (
+                        <div className="max-w-lg mx-auto rounded-2xl overflow-hidden shadow-sm border border-gray-200 bg-black">
+                          <video
+                            src={block.url}
+                            controls
+                            className="w-full max-h-72 object-contain"
+                          >
+                            브라우저가 동영상 재생을 지원하지 않습니다.
+                          </video>
+                        </div>
+                      )}
+                      {block.fileName && (
+                        <div className="text-[11px] text-gray-400 font-medium">
+                          🎬 {block.fileName} {block.fileSize ? `(${block.fileSize})` : ''}
+                        </div>
+                      )}
+                      {block.caption && (
+                        <p className="text-xs text-gray-500 italic">🎬 {block.caption}</p>
                       )}
                     </div>
                   )}
@@ -1410,97 +1639,458 @@ export const BlogEditor: React.FC<BlogEditorProps> = ({
 
       {/* --- Modals for Media & Interactive Block Insertion --- */}
 
-      {/* 1. Image Insert Modal */}
+      {/* 1. Image Insert Modal (Supports File Upload & Web URL) */}
       {activeModal === 'image' && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-[32px] p-6 max-w-md w-full shadow-2xl border border-gray-100 space-y-4 animate-in zoom-in-95">
+          <div className="bg-white rounded-[32px] p-6 max-w-lg w-full shadow-2xl border border-gray-100 space-y-4 animate-in zoom-in-95">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-[#E89E9D]" />
-                <h3 className="font-bold text-gray-800 text-sm">사진 삽입하기</h3>
+                <div className="w-8 h-8 rounded-xl bg-[#F7CAC9]/30 flex items-center justify-center text-[#E89E9D]">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 text-sm">사진 삽입하기</h3>
+                  <p className="text-[11px] text-gray-400">내 기기의 사진 파일을 올리거나 웹 이미지 링크를 넣으세요</p>
+                </div>
               </div>
               <button
-                onClick={() => setActiveModal(null)}
-                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                type="button"
+                onClick={() => {
+                  setActiveModal(null);
+                  setTempImageFile(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer p-1"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-gray-600 font-bold mb-1">이미지 웹 URL 링크</label>
-                <input
-                  type="url"
-                  value={tempImageUrl}
-                  onChange={(e) => setTempImageUrl(e.target.value)}
-                  placeholder="https://example.com/photo.jpg"
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#F7CAC9]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-600 font-bold mb-1">사진 설명 / 캡션 (선택)</label>
-                <input
-                  type="text"
-                  value={tempImageCaption}
-                  onChange={(e) => setTempImageCaption(e.target.value)}
-                  placeholder="예: 우리 반 과학 실험 모습"
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#F7CAC9]"
-                />
-              </div>
-
-              {/* Sample Quick Unsplash Photo buttons */}
-              <div>
-                <span className="text-[11px] text-gray-400 font-medium block mb-1.5">추천 학급 테마 사진:</span>
-                <div className="flex gap-1.5 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => setTempImageUrl('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800')}
-                    className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-[11px] cursor-pointer"
-                  >
-                    🏫 학교 교실
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTempImageUrl('https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=800')}
-                    className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-[11px] cursor-pointer"
-                  >
-                    📚 책과 독서
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTempImageUrl('https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?w=800')}
-                    className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-[11px] cursor-pointer"
-                  >
-                    🎨 미술 그리기
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTempImageUrl('https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800')}
-                    className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-[11px] cursor-pointer"
-                  >
-                    ⚽ 신나는 체육
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
+            {/* Mode Switch Tabs */}
+            <div className="flex bg-gray-100 p-1 rounded-2xl gap-1">
               <button
                 type="button"
-                onClick={() => setActiveModal(null)}
+                onClick={() => setImageInputTab('file')}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  imageInputTab === 'file'
+                    ? 'bg-white text-gray-800 shadow-xs'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <FileUp className="w-3.5 h-3.5 text-[#E89E9D]" />
+                <span>내 사진 파일 업로드</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setImageInputTab('url')}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  imageInputTab === 'url'
+                    ? 'bg-white text-gray-800 shadow-xs'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Link2 className="w-3.5 h-3.5 text-indigo-500" />
+                <span>웹 이미지 링크(URL)</span>
+              </button>
+            </div>
+
+            {/* Tab 1: Local File Upload & Drag-and-Drop */}
+            {imageInputTab === 'file' && (
+              <div className="space-y-3">
+                {!tempImageFile ? (
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDraggingImage(true);
+                    }}
+                    onDragLeave={() => setIsDraggingImage(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDraggingImage(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) handleImageFileSelect(file);
+                    }}
+                    className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${
+                      isDraggingImage
+                        ? 'border-[#E89E9D] bg-[#F7CAC9]/20 scale-[1.01]'
+                        : 'border-gray-300 hover:border-[#E89E9D] bg-gray-50/70 hover:bg-[#F7CAC9]/10'
+                    }`}
+                    onClick={() => {
+                      const input = document.getElementById('image-file-input');
+                      if (input) input.click();
+                    }}
+                  >
+                    <input
+                      id="image-file-input"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageFileSelect(file);
+                      }}
+                    />
+                    <div className="w-12 h-12 rounded-2xl bg-white shadow-xs border border-gray-100 flex items-center justify-center mx-auto text-[#E89E9D] mb-2.5">
+                      <UploadCloud className="w-6 h-6" />
+                    </div>
+                    <p className="text-xs font-bold text-gray-700 mb-0.5">
+                      사진 파일을 여기에 드래그하거나 클릭하여 선택하세요
+                    </p>
+                    <p className="text-[11px] text-gray-400">
+                      JPG, PNG, GIF, WebP 형식 지원 (자동 최적화)
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-2xl space-y-2.5">
+                    <div className="relative rounded-xl overflow-hidden max-h-48 bg-black/5 flex items-center justify-center">
+                      <img
+                        src={tempImageFile.dataUrl}
+                        alt="선택된 사진 미리보기"
+                        className="max-h-48 w-auto object-contain rounded-xl"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-xs px-1">
+                      <div className="truncate pr-2">
+                        <span className="font-bold text-gray-800 truncate block">{tempImageFile.name}</span>
+                        <span className="text-[10px] text-gray-400">{tempImageFile.size}</span>
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const input = document.getElementById('image-file-input-change');
+                            if (input) input.click();
+                          }}
+                          className="px-2.5 py-1 bg-white border border-gray-200 hover:bg-gray-100 rounded-lg text-[11px] font-bold text-gray-600 cursor-pointer"
+                        >
+                          변경
+                        </button>
+                        <input
+                          id="image-file-input-change"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleImageFileSelect(file);
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setTempImageFile(null)}
+                          className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-[11px] font-bold cursor-pointer"
+                        >
+                          제거
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 2: Web Image URL */}
+            {imageInputTab === 'url' && (
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-gray-600 font-bold mb-1">이미지 웹 URL 링크</label>
+                  <input
+                    type="url"
+                    value={tempImageUrl}
+                    onChange={(e) => setTempImageUrl(e.target.value)}
+                    placeholder="https://example.com/photo.jpg"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#F7CAC9]"
+                  />
+                </div>
+
+                {/* Sample Quick Unsplash Photo buttons */}
+                <div>
+                  <span className="text-[11px] text-gray-400 font-medium block mb-1.5">추천 학급 테마 사진:</span>
+                  <div className="flex gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setTempImageUrl('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800')}
+                      className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-[11px] cursor-pointer"
+                    >
+                      🏫 학교 교실
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTempImageUrl('https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=800')}
+                      className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-[11px] cursor-pointer"
+                    >
+                      📚 책과 독서
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTempImageUrl('https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?w=800')}
+                      className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-[11px] cursor-pointer"
+                    >
+                      🎨 미술 그리기
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTempImageUrl('https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800')}
+                      className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-[11px] cursor-pointer"
+                    >
+                      ⚽ 신나는 체육
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Common Image Caption */}
+            <div className="text-xs">
+              <label className="block text-gray-600 font-bold mb-1">사진 설명 / 캡션 (선택)</label>
+              <input
+                type="text"
+                value={tempImageCaption}
+                onChange={(e) => setTempImageCaption(e.target.value)}
+                placeholder="예: 우리 반 과학 실험 모습"
+                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#F7CAC9]"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveModal(null);
+                  setTempImageFile(null);
+                }}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-100 cursor-pointer"
               >
                 취소
               </button>
               <button
                 type="button"
+                disabled={isProcessingMedia}
                 onClick={handleInsertImage}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer shadow-xs"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white cursor-pointer shadow-xs transition-transform active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
                 style={{ backgroundColor: '#F7CAC9' }}
               >
-                사진 삽입
+                <Plus className="w-3.5 h-3.5" />
+                <span>사진 삽입</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 1-2. Video Insert Modal (Supports File Upload & YouTube/Web Links) */}
+      {activeModal === 'video' && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] p-6 max-w-lg w-full shadow-2xl border border-gray-100 space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-red-100 flex items-center justify-center text-red-600">
+                  <Film className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 text-sm">동영상 첨부하기</h3>
+                  <p className="text-[11px] text-gray-400">내 기기의 비디오 파일을 첨부하거나 유튜브/웹 링크를 입력하세요</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveModal(null);
+                  setTempVideoFile(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Mode Switch Tabs */}
+            <div className="flex bg-gray-100 p-1 rounded-2xl gap-1">
+              <button
+                type="button"
+                onClick={() => setVideoInputTab('file')}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  videoInputTab === 'file'
+                    ? 'bg-white text-gray-800 shadow-xs'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <FileVideo className="w-3.5 h-3.5 text-red-500" />
+                <span>내 동영상 파일 첨부</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setVideoInputTab('url')}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  videoInputTab === 'url'
+                    ? 'bg-white text-gray-800 shadow-xs'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Play className="w-3.5 h-3.5 text-red-500" />
+                <span>유튜브 / 웹 링크(URL)</span>
+              </button>
+            </div>
+
+            {/* Tab 1: Video File Upload */}
+            {videoInputTab === 'file' && (
+              <div className="space-y-3">
+                {!tempVideoFile ? (
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDraggingVideo(true);
+                    }}
+                    onDragLeave={() => setIsDraggingVideo(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDraggingVideo(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) handleVideoFileSelect(file);
+                    }}
+                    className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${
+                      isDraggingVideo
+                        ? 'border-red-400 bg-red-50 scale-[1.01]'
+                        : 'border-gray-300 hover:border-red-400 bg-gray-50/70 hover:bg-red-50/50'
+                    }`}
+                    onClick={() => {
+                      const input = document.getElementById('video-file-input');
+                      if (input) input.click();
+                    }}
+                  >
+                    <input
+                      id="video-file-input"
+                      type="file"
+                      accept="video/mp4,video/webm,video/ogg,video/quicktime"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleVideoFileSelect(file);
+                      }}
+                    />
+                    <div className="w-12 h-12 rounded-2xl bg-white shadow-xs border border-gray-100 flex items-center justify-center mx-auto text-red-500 mb-2.5">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <p className="text-xs font-bold text-gray-700 mb-0.5">
+                      동영상 파일을 여기에 드래그하거나 클릭하여 선택하세요
+                    </p>
+                    <p className="text-[11px] text-gray-400">
+                      MP4, WebM, MOV 형식 지원 (최대 50MB)
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-2xl space-y-2.5">
+                    <div className="rounded-xl overflow-hidden max-h-48 bg-black flex items-center justify-center">
+                      <video
+                        src={tempVideoFile.dataUrl}
+                        controls
+                        className="max-h-48 w-full object-contain"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-xs px-1">
+                      <div className="truncate pr-2">
+                        <span className="font-bold text-gray-800 truncate block">{tempVideoFile.name}</span>
+                        <span className="text-[10px] text-gray-400">{tempVideoFile.size}</span>
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const input = document.getElementById('video-file-input-change');
+                            if (input) input.click();
+                          }}
+                          className="px-2.5 py-1 bg-white border border-gray-200 hover:bg-gray-100 rounded-lg text-[11px] font-bold text-gray-600 cursor-pointer"
+                        >
+                          변경
+                        </button>
+                        <input
+                          id="video-file-input-change"
+                          type="file"
+                          accept="video/mp4,video/webm,video/ogg,video/quicktime"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleVideoFileSelect(file);
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setTempVideoFile(null)}
+                          className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-[11px] font-bold cursor-pointer"
+                        >
+                          제거
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 2: Video Web / YouTube URL */}
+            {videoInputTab === 'url' && (
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-gray-600 font-bold mb-1">유튜브 또는 동영상 웹 URL</label>
+                  <input
+                    type="url"
+                    value={tempVideoUrl}
+                    onChange={(e) => setTempVideoUrl(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=... 또는 https://youtu.be/..."
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-400"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    💡 일반 유튜브 영상 링크, 쇼츠(Shorts), 공유 링크 모두 자동으로 재생 화면으로 변환됩니다.
+                  </p>
+                </div>
+
+                {/* Quick preview if valid youtube link */}
+                {getYoutubeEmbedUrl(tempVideoUrl.trim()) && (
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-gray-600">미리보기:</span>
+                    <div className="aspect-video rounded-xl overflow-hidden shadow-xs border border-gray-200">
+                      <iframe
+                        src={getYoutubeEmbedUrl(tempVideoUrl.trim()) || ''}
+                        title="유튜브 미리보기"
+                        className="w-full h-full"
+                        allowFullScreen
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Common Video Caption */}
+            <div className="text-xs">
+              <label className="block text-gray-600 font-bold mb-1">동영상 설명 / 제목 (선택)</label>
+              <input
+                type="text"
+                value={tempVideoCaption}
+                onChange={(e) => setTempVideoCaption(e.target.value)}
+                placeholder="예: 5학년 3반 리코더 합주 발표 영상"
+                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-400"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveModal(null);
+                  setTempVideoFile(null);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-100 cursor-pointer"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={isProcessingMedia}
+                onClick={handleInsertVideo}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-red-500 hover:bg-red-600 cursor-pointer shadow-xs transition-transform active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>동영상 추가</span>
               </button>
             </div>
           </div>

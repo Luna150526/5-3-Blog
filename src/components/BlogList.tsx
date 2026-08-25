@@ -458,8 +458,48 @@ export const BlogList: React.FC<BlogListProps> = ({
                               className="max-h-80 w-auto mx-auto rounded-2xl object-cover shadow-xs border border-gray-100"
                               referrerPolicy="no-referrer"
                             />
+                            {block.fileName && (
+                              <div className="text-[11px] text-gray-400 font-medium">
+                                📁 {block.fileName} {block.fileSize ? `(${block.fileSize})` : ''}
+                              </div>
+                            )}
                             {block.caption && (
                               <p className="text-xs text-gray-400 italic">📷 {block.caption}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Video Block */}
+                        {block.type === 'video' && (
+                          <div className="space-y-1.5 text-center my-2">
+                            {block.videoType === 'youtube' || (block.url && block.url.includes('embed')) ? (
+                              <div className="relative aspect-video max-w-xl mx-auto rounded-2xl overflow-hidden shadow-xs border border-gray-100">
+                                <iframe
+                                  src={block.url}
+                                  title="동영상 플레이어"
+                                  className="w-full h-full"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                />
+                              </div>
+                            ) : (
+                              <div className="max-w-xl mx-auto rounded-2xl overflow-hidden shadow-xs border border-gray-100 bg-black">
+                                <video
+                                  src={block.url}
+                                  controls
+                                  className="w-full max-h-80 object-contain"
+                                >
+                                  브라우저가 동영상 재생을 지원하지 않습니다.
+                                </video>
+                              </div>
+                            )}
+                            {block.fileName && (
+                              <div className="text-[11px] text-gray-400 font-medium">
+                                🎬 {block.fileName} {block.fileSize ? `(${block.fileSize})` : ''}
+                              </div>
+                            )}
+                            {block.caption && (
+                              <p className="text-xs text-gray-400 italic">🎬 {block.caption}</p>
                             )}
                           </div>
                         )}
