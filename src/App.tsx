@@ -14,12 +14,13 @@ import { Sparkles, Megaphone, Heart, Crown } from 'lucide-react';
 const LOCAL_STORAGE_DB_KEY = 'class_5_3_db_v4';
 const LOCAL_STORAGE_GAS_KEY = 'class_gas_url';
 const LOCAL_STORAGE_USER_KEY = 'class_logged_user';
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzkaY_bZ8xWI3nQuI8E8AWYGpZme3dnpFr1peIIPV4czVRN9JGXdulkdvlu6klIaHuMSA/exec';
 
 export default function App() {
   // Navigation View: 'home' | 'write' | 'myPosts' | 'students' | 'control'
   const [view, setView] = useState<ViewType>('home');
   const [gasUrl, setGasUrl] = useState<string>(() => {
-    return localStorage.getItem(LOCAL_STORAGE_GAS_KEY) || '';
+    return localStorage.getItem(LOCAL_STORAGE_GAS_KEY) || DEFAULT_GAS_URL;
   });
 
   // Local or Synced Database State
